@@ -206,6 +206,8 @@ EOF
 @test "_write_codegraph_mcp_config: jq absent — warns 'add codegraph server manually', does NOT clobber existing file" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
   local mcp_file="$cfg_dir/.mcp.json"
+  local log_file="$WSK_TEST_HOME/jq_absent.log"
+  : > "$log_file"
   mkdir -p "$cfg_dir"
 
   cat > "$mcp_file" <<'EOF'
@@ -222,10 +224,32 @@ EOF
   local orig_content
   orig_content="$(cat "$mcp_file")"
 
-  # Remove jq shim to simulate jq absent
-  stub_absent jq
+  # Place a jq shim that always exits non-zero (simulates jq absent or broken).
+  # command -v jq will succeed (shim exists) but we need to make _write_codegraph_mcp_config
+  # behave as if jq is absent. We override the shim to exit 127 so command -v returns false
+  # by writing a shim that is NOT executable (command -v won't find a non-executable file),
+  # OR we remove the shim AND remove /usr/bin from PATH via a wrapper approach.
+  #
+  # Simplest portable approach: replace the jq shim with one that exits 127 (not 0),
+  # and override _write_codegraph_mcp_config's command -v jq by running in a subprocess
+  # where PATH only contains $WSK_STUB_BIN (no /usr/bin which has real jq on macOS).
+  # We use only the stub bin dir on PATH so /usr/bin/jq is not visible.
+  stub_absent jq  # remove jq from stub bin → command -v jq fails in stub-only PATH
 
-  run _write_codegraph_mcp_config "work" "$cfg_dir"
+  local output
+  output="$(bash -c "
+    export PATH='${WSK_STUB_BIN}'
+    export WSK_STUB_LOG='${log_file}'
+    export WSK_STUB_BIN='${WSK_STUB_BIN}'
+    export HOME='${WSK_TEST_HOME}'
+    export WSK_DIR='${WSK_DIR}'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    _write_codegraph_mcp_config 'work' '${cfg_dir}' || true
+  " 2>&1)"
 
   echo "$output" | grep -qi "manually\|add codegraph"
   # existing file not clobbered

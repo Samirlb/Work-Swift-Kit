@@ -163,11 +163,11 @@ Verify FAIL (RED).
 
 ### 2.1 — RED: write failing tests in `tests/e2e/test_bootstrap_cross_os.bats`
 
-- [ ] Test: macOS path — `bootstrap` proceeds normally; `detect_os` called; no hard-exit.
-- [ ] Test: Linux path — `WSK_OS=linux` set; no exit; prereq packages installed via `pkg_install` (apt-get stub recorded calls to gum, stow, fzf, gettext).
-- [ ] Test: Windows path — `WSK_OS=windows` → instructions printed, exit 0.
-- [ ] Test: `packages.sh` on Linux — `WSK_PKG_MGR=apt` → each package installed via `apt-get`, NOT `brew`.
-- [ ] Test: `terminals.sh` on Linux — cask flag ignored; linux-native paths used for alacritty/kitty/wezterm/neovim; `check_warn` for unavailable items; Windows → instruction only.
+- [x] Test: macOS path — `bootstrap` proceeds normally; `detect_os` called; no hard-exit.
+- [x] Test: Linux path — `WSK_OS=linux` set; no exit; prereq packages installed via `pkg_install` (apt-get stub recorded calls to gum, stow, fzf, gettext).
+- [x] Test: Windows path — `WSK_OS=windows` → instructions printed, exit 0.
+- [x] Test: `packages.sh` on Linux — `WSK_PKG_MGR=apt` → each package installed via `apt-get`, NOT `brew`.
+- [x] Test: `terminals.sh` on Linux — cask flag ignored; linux-native paths used for alacritty/kitty/wezterm/neovim; `check_warn` for unavailable items; Windows → instruction only.
 
 Verify FAIL (RED) — bootstrap still exits on non-Darwin.
 
@@ -175,33 +175,33 @@ Verify FAIL (RED) — bootstrap still exits on non-Darwin.
 
 ### 2.2 — GREEN: refactor `lib/bootstrap.sh`
 
-- [ ] Remove Darwin-only `exit 1` guard.
-- [ ] Add `source "${WSK_DIR}/lib/os.sh"` (guard for double-source: wrap in `if ! declare -F detect_os > /dev/null` or just re-source idempotently since functions redefine).
-- [ ] Call `detect_os; detect_pkg_mgr || true`.
-- [ ] On Windows: print manual setup instructions, `exit 0`.
-- [ ] On macOS: existing Homebrew install path; replace `brew list` loop with `pkg_install` calls for `gum stow fzf gettext`.
-- [ ] On Linux: `pkg_install gum stow fzf gettext` (gum PATH shim already present in bats; on real Linux the charm repo or a workaround applies — document as known limitation, installer should warn, not fail).
-- [ ] Run `shellcheck lib/bootstrap.sh` → clean.
+- [x] Remove Darwin-only `exit 1` guard.
+- [x] Add `source "${WSK_DIR}/lib/os.sh"` (guard for double-source: wrap in `if ! declare -F detect_os > /dev/null` or just re-source idempotently since functions redefine).
+- [x] Call `detect_os; detect_pkg_mgr || true`.
+- [x] On Windows: print manual setup instructions, `exit 0`.
+- [x] On macOS: existing Homebrew install path; replace `brew list` loop with `pkg_install` calls for `gum stow fzf gettext`.
+- [x] On Linux: `pkg_install gum stow fzf gettext` (gum PATH shim already present in bats; on real Linux the charm repo or a workaround applies — document as known limitation, installer should warn, not fail).
+- [x] Run `shellcheck lib/bootstrap.sh` → clean.
 
 ### 2.3 — GREEN: refactor `lib/packages.sh`
 
-- [ ] Replace `brew list "$pkg"` guard + `brew install "$pkg"` loop with `pkg_install "$bin"` (binary name, not label) using the existing label:binary mapping pattern.
-- [ ] Keep the `label:binary` pairs logic; pass the BINARY to `pkg_install` so the `command -v` guard works.
-- [ ] Run `shellcheck lib/packages.sh` → clean.
+- [x] Replace `brew list "$pkg"` guard + `brew install "$pkg"` loop with `pkg_install "$bin"` (binary name, not label) using the existing label:binary mapping pattern.
+- [x] Keep the `label:binary` pairs logic; pass the BINARY to `pkg_install` so the `command -v` guard works.
+- [x] Run `shellcheck lib/packages.sh` → clean.
 
 ### 2.4 — GREEN: refactor `lib/terminals.sh`
 
-- [ ] On macOS: existing `brew install --cask <cask>` replaced with `pkg_install <cask> --cask`.
-- [ ] On Linux: map terminal names to native packages where available:
+- [x] On macOS: existing `brew install --cask <cask>` replaced with `pkg_install <cask> --cask`.
+- [x] On Linux: map terminal names to native packages where available:
   - Alacritty → `pkg_install alacritty`
   - Kitty → `pkg_install kitty`
   - WezTerm → `pkg_install wezterm` (check_warn if not available via active mgr)
   - Neovim → `pkg_install neovim`
   - Warp / iTerm2 → macOS-only; `check_warn "$item not available on Linux"`, skip.
-- [ ] On Windows: `check_warn "$item: install manually on Windows"`, skip.
-- [ ] Run `shellcheck lib/terminals.sh` → clean.
-- [ ] Run `bats tests/e2e/test_bootstrap_cross_os.bats` → all pass (GREEN).
-- [ ] Run all existing tests → all pass.
+- [x] On Windows: `check_warn "$item: install manually on Windows"`, skip.
+- [x] Run `shellcheck lib/terminals.sh` → clean.
+- [x] Run `bats tests/e2e/test_bootstrap_cross_os.bats` → all pass (GREEN).
+- [x] Run all existing tests → all pass.
 
 **Commit**: `refactor(bootstrap): drop Darwin guard; use pkg_install for prereqs, packages, and terminals`
 
@@ -216,16 +216,16 @@ Verify FAIL (RED) — bootstrap still exits on non-Darwin.
 
 ### 3.1 — RED: write failing `tests/e2e/test_node_toolchain.bats`
 
-- [ ] Test: `install_node` — node absent, `WSK_OS=macos`, `WSK_PKG_MGR=brew` → brew stub records `install node`.
-- [ ] Test: `install_node` — node absent, `WSK_OS=linux`, `WSK_PKG_MGR=apt` → apt-get stub records `install -y node`.
-- [ ] Test: `install_node` — node present → no installer called; "already installed" in output.
-- [ ] Test: `install_node` — `WSK_OS=windows` → instruction printed; no installer called.
-- [ ] Test: `install_pnpm` — pnpm absent, `WSK_OS=macos` → brew stub records `install pnpm`; curl stub NOT called with pnpm URL.
-- [ ] Test: `install_pnpm` — pnpm absent, `WSK_OS=linux`, corepack shim present → corepack stub records `enable pnpm`.
-- [ ] Test: `install_pnpm` — pnpm absent, `WSK_OS=linux`, corepack absent → curl stub records `https://get.pnpm.io/install.sh`.
-- [ ] Test: `install_pnpm` — pnpm present → no installer called.
-- [ ] Test: `install_pnpm` — node absent → error "Node.js is required before pnpm" printed; non-zero exit; pnpm NOT attempted.
-- [ ] Test: `install_pnpm` — `WSK_OS=windows` → instruction printed; no installer called.
+- [x] Test: `install_node` — node absent, `WSK_OS=macos`, `WSK_PKG_MGR=brew` → brew stub records `install node`.
+- [x] Test: `install_node` — node absent, `WSK_OS=linux`, `WSK_PKG_MGR=apt` → apt-get stub records `install -y node`.
+- [x] Test: `install_node` — node present → no installer called; "already installed" in output.
+- [x] Test: `install_node` — `WSK_OS=windows` → instruction printed; no installer called.
+- [x] Test: `install_pnpm` — pnpm absent, `WSK_OS=macos` → brew stub records `install pnpm`; curl stub NOT called with pnpm URL.
+- [x] Test: `install_pnpm` — pnpm absent, `WSK_OS=linux`, corepack shim present → corepack stub records `enable pnpm`.
+- [x] Test: `install_pnpm` — pnpm absent, `WSK_OS=linux`, corepack absent → curl stub records `https://get.pnpm.io/install.sh`.
+- [x] Test: `install_pnpm` — pnpm present → no installer called.
+- [x] Test: `install_pnpm` — node absent → error "Node.js is required before pnpm" printed; non-zero exit; pnpm NOT attempted.
+- [x] Test: `install_pnpm` — `WSK_OS=windows` → instruction printed; no installer called.
 
 Verify FAIL (RED).
 
@@ -233,18 +233,18 @@ Verify FAIL (RED).
 
 ### 3.2 — GREEN: implement `lib/node.sh`
 
-- [ ] Create `lib/node.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
-- [ ] Implement `install_node` as designed (idempotent via `command -v node`; macOS/linux: `pkg_install node`; windows: instruction).
-- [ ] Implement `install_pnpm` as designed:
+- [x] Create `lib/node.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
+- [x] Implement `install_node` as designed (idempotent via `command -v node`; macOS/linux: `pkg_install node`; windows: instruction).
+- [x] Implement `install_pnpm` as designed:
   - Idempotent via `command -v pnpm`.
   - Windows: instruction, return 0.
   - Node prereq guard: if no `node` → `log_error ...`, return 1.
   - macOS: `ui_spin "Installing pnpm..." -- brew install pnpm` (explicit brew, NOT `pkg_install`).
   - Linux + corepack: `corepack enable pnpm`.
   - Linux, no corepack: `curl -fsSL https://get.pnpm.io/install.sh | sh -`.
-- [ ] Run `shellcheck lib/node.sh` → clean.
-- [ ] Run `bats tests/e2e/test_node_toolchain.bats` → all pass (GREEN).
-- [ ] Run all existing tests → all pass.
+- [x] Run `shellcheck lib/node.sh` → clean.
+- [x] Run `bats tests/e2e/test_node_toolchain.bats` → all pass (GREEN).
+- [x] Run all existing tests → all pass.
 
 **Commit**: `feat(node): implement lib/node.sh — install_node and install_pnpm`
 
@@ -259,16 +259,16 @@ Verify FAIL (RED).
 
 ### 4.1 — RED: write failing `tests/e2e/test_claude_install.bats`
 
-- [ ] Test: `install_claude_code` — claude absent, `WSK_OS=macos/linux` → curl stub records `https://claude.ai/install.sh`; no brew call.
-- [ ] Test: `install_claude_code` — claude present → curl NOT called; "claude already installed" in output.
-- [ ] Test: `install_claude_code` — `WSK_OS=windows` → PowerShell instruction printed; curl NOT called.
-- [ ] Test: `install_codegraph <acct>` — codegraph absent, node present → npm stub records `i -g @colbymchenry/codegraph`; `~/.claude-<acct>/.mcp.json` created containing `"codegraph"` key.
-- [ ] Test: `install_codegraph` — codegraph present → npm NOT called; "already installed" in output.
-- [ ] Test: `install_codegraph` — node absent → error "Node.js is required for codegraph"; npm NOT called; non-zero exit.
-- [ ] Test: `_write_codegraph_mcp_config` — `.mcp.json` absent → written with correct JSON structure.
-- [ ] Test: `_write_codegraph_mcp_config` — `.mcp.json` present, no codegraph key → jq merges codegraph key in; existing keys preserved.
-- [ ] Test: `_write_codegraph_mcp_config` — `.mcp.json` present with `codegraph` already → no overwrite; "already configured" in output.
-- [ ] Test: `_write_codegraph_mcp_config` — jq absent → warns "add codegraph server manually"; does NOT clobber existing file.
+- [x] Test: `install_claude_code` — claude absent, `WSK_OS=macos/linux` → curl stub records `https://claude.ai/install.sh`; no brew call.
+- [x] Test: `install_claude_code` — claude present → curl NOT called; "claude already installed" in output.
+- [x] Test: `install_claude_code` — `WSK_OS=windows` → PowerShell instruction printed; curl NOT called.
+- [x] Test: `install_codegraph <acct>` — codegraph absent, node present → npm stub records `i -g @colbymchenry/codegraph`; `~/.claude-<acct>/.mcp.json` created containing `"codegraph"` key.
+- [x] Test: `install_codegraph` — codegraph present → npm NOT called; "already installed" in output.
+- [x] Test: `install_codegraph` — node absent → error "Node.js is required for codegraph"; npm NOT called; non-zero exit.
+- [x] Test: `_write_codegraph_mcp_config` — `.mcp.json` absent → written with correct JSON structure.
+- [x] Test: `_write_codegraph_mcp_config` — `.mcp.json` present, no codegraph key → jq merges codegraph key in; existing keys preserved.
+- [x] Test: `_write_codegraph_mcp_config` — `.mcp.json` present with `codegraph` already → no overwrite; "already configured" in output.
+- [x] Test: `_write_codegraph_mcp_config` — jq absent → warns "add codegraph server manually"; does NOT clobber existing file.
 
 Verify FAIL (RED).
 
@@ -276,18 +276,18 @@ Verify FAIL (RED).
 
 ### 4.2 — GREEN: implement `lib/claude.sh`
 
-- [ ] Create `lib/claude.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
-- [ ] Implement `install_claude_code` as designed.
-- [ ] Implement `_write_codegraph_mcp_config <acct> <cfg_dir>`:
+- [x] Create `lib/claude.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
+- [x] Implement `install_claude_code` as designed.
+- [x] Implement `_write_codegraph_mcp_config <acct> <cfg_dir>`:
   - `mkdir -p "$cfg_dir"`.
   - Idempotency: if `.mcp.json` contains `"codegraph"` key → pass + return.
   - Absent: write full MCP JSON object.
   - Present without codegraph + jq available: `jq '.mcpServers.codegraph = {...}'` merge in-place.
   - Present without codegraph, no jq: `check_warn` "add codegraph server manually".
-- [ ] Implement `install_codegraph <acct>` as designed (node prereq, idempotent, calls `_write_codegraph_mcp_config`).
-- [ ] Run `shellcheck lib/claude.sh` → clean.
-- [ ] Run `bats tests/e2e/test_claude_install.bats` → all pass (GREEN).
-- [ ] Run all existing tests → all pass.
+- [x] Implement `install_codegraph <acct>` as designed (node prereq, idempotent, calls `_write_codegraph_mcp_config`).
+- [x] Run `shellcheck lib/claude.sh` → clean.
+- [x] Run `bats tests/e2e/test_claude_install.bats` → all pass (GREEN).
+- [x] Run all existing tests → all pass.
 
 **Commit**: `feat(claude): implement lib/claude.sh — install_claude_code, install_codegraph, MCP config writer`
 
