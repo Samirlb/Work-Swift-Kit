@@ -1,8 +1,8 @@
 class WorkSwiftKit < Formula
   desc "Interactive macOS dev environment setup for multi-account workflows"
   homepage "https://github.com/Samirlb/Work-Swift-Kit"
-  url "https://github.com/Samirlb/Work-Swift-Kit/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "9439702dec28ca4d1d9969e909cc8600249dd3e2c9729bdabc45bb1aa79857e4"
+  url "https://github.com/Samirlb/Work-Swift-Kit/releases/download/v0.2.0/wsk-v0.2.0.tar.gz"
+  sha256 "ff85a1fae9281bf562626e3e16af85518ac56f17b496eb9a3c7c2289891c58a5"
   license "MIT"
 
   depends_on "gum"
