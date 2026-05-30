@@ -16,6 +16,7 @@ source "${WSK_DIR}/lib/terminals.sh"
 source "${WSK_DIR}/lib/packages.sh"
 source "${WSK_DIR}/lib/render.sh"
 source "${WSK_DIR}/lib/stow.sh"
+source "${WSK_DIR}/lib/gh.sh"
 
 if [[ "${1:-}" == "--relink" ]]; then
   render_all
@@ -33,6 +34,7 @@ case "$ACTION" in
     collect_accounts
     install_packages
     install_terminals
+    setup_gh_accounts
     render_all
     link_dotfiles
     ;;

@@ -16,31 +16,59 @@ eval "$(zoxide init zsh)"
 
 EOF
 
+  # _switch_profile helper — written once, shared by all profile functions
+  cat >> "$out" <<'EOF'
+function _wsk_switch_profile() {
+  local gh_user="$1" claude_config="$2" base="$3"
+  shift 3
+  local arg="${1:-}"
+
+  gh auth switch --user "$gh_user" 2>/dev/null && \
+    echo "gh → $gh_user" || echo "gh: could not switch to $gh_user"
+
+  if [[ "$arg" == "-p" ]]; then
+    ls "$base"; return
+  fi
+
+  local project
+  if [[ -n "$arg" ]]; then
+    if [[ -d "$base/$arg" ]]; then
+      project="$arg"
+    else
+      project=$(find "$base" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | grep -i "^$arg" | head -1)
+    fi
+    [[ -z "$project" ]] && echo "no project matching '$arg'" && return 1
+  else
+    project=$(find "$base" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; \
+      | fzf --prompt="${base##*/} › " --height=40%)
+    [[ -z "$project" ]] && return
+  fi
+
+  cd "$base/$project" && CLAUDE_CONFIG_DIR="$claude_config" claude
+}
+
+EOF
+
   for acct in "${WSK_ACCOUNTS[@]}"; do
     local env_file="${WSK_DIR}/accounts/${acct}.env"
 
-    local projects_dir
+    local projects_dir github_user
     projects_dir=$(grep '^PROJECTS_DIR=' "$env_file" | cut -d= -f2-)
+    github_user=$(grep '^GIT_GITHUB_USER=' "$env_file" | cut -d= -f2-)
 
-    # Write the function using a quoted heredoc so $1, $(), etc. are NOT expanded.
-    # Account-specific values are interpolated into shell vars before the heredoc.
-    local fn_name="claude-${acct}"
     local fn_base="$projects_dir"
-    local fn_prompt="${acct} › "
     local fn_claude_dir="$HOME/.claude-${acct}"
+    local fn_gh_user="$github_user"
 
+    # unified profile function: switches gh + opens claude
     cat >> "$out" <<EOF
-function ${fn_name}() {
-  local base="${fn_base}"
-  if [[ "\$1" == "-p" ]]; then
-    ls "\$base"
-  elif [[ -n "\$1" ]]; then
-    cd "\$base/\$1" && CLAUDE_CONFIG_DIR="${fn_claude_dir}" claude
-  else
-    local project
-    project=\$(ls "\$base" | fzf --prompt="${fn_prompt}" --height=40%)
-    [[ -n "\$project" ]] && cd "\$base/\$project" && CLAUDE_CONFIG_DIR="${fn_claude_dir}" claude
-  fi
+function ${acct}() {
+  _wsk_switch_profile "${fn_gh_user}" "${fn_claude_dir}" "${fn_base}" "\$@"
+}
+
+# gh-only shorthand
+function gh-${acct}() {
+  gh auth switch --user "${fn_gh_user}" 2>/dev/null && gh "\$@"
 }
 
 EOF
