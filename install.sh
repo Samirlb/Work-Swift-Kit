@@ -12,6 +12,10 @@ bootstrap
 
 source "${WSK_DIR}/lib/ui.sh"
 source "${WSK_DIR}/lib/accounts.sh"
+source "${WSK_DIR}/lib/os.sh"
+source "${WSK_DIR}/lib/node.sh"
+source "${WSK_DIR}/lib/claude.sh"
+source "${WSK_DIR}/lib/frameworks.sh"
 source "${WSK_DIR}/lib/terminals.sh"
 source "${WSK_DIR}/lib/packages.sh"
 source "${WSK_DIR}/lib/render.sh"
@@ -26,6 +30,11 @@ run_full_setup() {
   collect_accounts
   install_packages
   install_terminals
+  detect_os; detect_pkg_mgr || true
+  install_node
+  install_pnpm
+  install_claude_code
+  run_ai_for_all_accounts
   setup_gh_accounts
   render_all
   link_dotfiles
@@ -55,6 +64,7 @@ dispatch() {
     relink)        run_relink ;;
     doctor|check)  run_doctor ;;
     update)        run_update ;;
+    ai)            run_ai ;;
     *)             return 1 ;;
   esac
 }
@@ -67,7 +77,7 @@ if [[ "$COMMAND" != "menu" ]]; then
     log_success "Done."
     exit 0
   fi
-  echo "Usage: wsk [setup|accounts|terminals|relink|doctor|update]" >&2
+  echo "Usage: wsk [setup|accounts|terminals|relink|doctor|update|ai]" >&2
   exit 1
 fi
 
@@ -78,6 +88,7 @@ while true; do
       "setup::Full setup::Install everything and configure all tools" \
       "accounts::Accounts only::Configure accounts and authentication" \
       "terminals::Terminals only::Setup shells, aliases and terminal tools" \
+      "ai::AI dev tools::Install Claude Code, framework, codegraph and skills per account" \
       "check::Check configuration::Verify installed tools, links and accounts" \
       "update::Update::Pull latest kit and upgrade packages" \
       "relink::Re-link configs::Re-symlink existing configuration files" \
@@ -87,6 +98,7 @@ while true; do
       "Full setup::Install everything and configure all tools" \
       "Accounts only::Configure accounts and authentication" \
       "Terminals only::Setup shells, aliases and terminal tools" \
+      "AI dev tools::Install Claude Code, framework, codegraph and skills per account" \
       "Check configuration::Verify installed tools, links and accounts" \
       "Update::Pull latest kit and upgrade packages" \
       "Re-link configs::Re-symlink existing configuration files" \
@@ -97,6 +109,7 @@ while true; do
     *"Full setup"*)          run_full_setup ;;
     *"Accounts only"*)       run_accounts ;;
     *"Terminals only"*)      install_terminals ;;
+    *"AI dev tools"*)        run_ai ;;
     *"Check configuration"*) run_doctor ;;
     *"Update"*)              run_update ;;
     *"Re-link configs"*)     run_relink ;;
