@@ -23,11 +23,21 @@ jobs:
 
   test:
     name: E2E Tests
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Install deps (macOS)
+        if: runner.os == 'macOS'
+        run: brew install bats-core gum stow fzf gettext jq sd
+      - name: Install deps (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
-          brew install bats-core gum stow fzf gettext
+          sudo apt-get update
+          sudo apt-get install -y bats stow gettext-base jq fzf
+          cargo install sd || true
       - name: Run E2E tests
         run: bats tests/e2e/
