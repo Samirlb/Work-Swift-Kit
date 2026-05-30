@@ -99,68 +99,89 @@ SHIM
 # detect_pkg_mgr tests
 # ---------------------------------------------------------------------------
 
-@test "detect_pkg_mgr sets WSK_PKG_MGR=brew when brew shim present, others absent" {
-  stub_present brew
-  stub_absent apt-get
-  stub_absent dnf
-  stub_absent pacman
-  stub_absent winget
+# Helper: build an isolated bin dir with only the named manager binary present.
+# Returns the dir path.
+_make_iso_bin() {
+  local manager="$1"
+  local iso_bin
+  iso_bin="$(mktemp -d)"
+  if [[ -n "$manager" ]]; then
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$iso_bin/$manager"
+    chmod +x "$iso_bin/$manager"
+  fi
+  echo "$iso_bin"
+}
 
-  unset WSK_PKG_MGR
-  source "${WSK_DIR}/lib/os.sh"
-  detect_pkg_mgr
-  [[ "$WSK_PKG_MGR" == "brew" ]]
+@test "detect_pkg_mgr sets WSK_PKG_MGR=brew when brew shim present, others absent" {
+  local iso_bin result_file="$WSK_TEST_HOME/result.txt"
+  iso_bin="$(_make_iso_bin brew)"
+  bash -c "
+    export PATH='$iso_bin:/usr/bin:/bin'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    detect_pkg_mgr
+    echo \"\$WSK_PKG_MGR\" > '$result_file'
+  "
+  [[ "$(cat "$result_file")" == "brew" ]]
+  rm -rf "$iso_bin"
 }
 
 @test "detect_pkg_mgr sets WSK_PKG_MGR=apt when apt-get present, brew absent" {
-  stub_absent brew
-  stub_present apt-get
-  stub_absent dnf
-  stub_absent pacman
-  stub_absent winget
-
-  unset WSK_PKG_MGR
-  source "${WSK_DIR}/lib/os.sh"
-  detect_pkg_mgr
-  [[ "$WSK_PKG_MGR" == "apt" ]]
+  local iso_bin result_file="$WSK_TEST_HOME/result.txt"
+  iso_bin="$(_make_iso_bin apt-get)"
+  bash -c "
+    export PATH='$iso_bin:/usr/bin:/bin'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    detect_pkg_mgr
+    echo \"\$WSK_PKG_MGR\" > '$result_file'
+  "
+  [[ "$(cat "$result_file")" == "apt" ]]
+  rm -rf "$iso_bin"
 }
 
 @test "detect_pkg_mgr sets WSK_PKG_MGR=dnf when dnf present, brew and apt absent" {
-  stub_absent brew
-  stub_absent apt-get
-  stub_present dnf
-  stub_absent pacman
-  stub_absent winget
-
-  unset WSK_PKG_MGR
-  source "${WSK_DIR}/lib/os.sh"
-  detect_pkg_mgr
-  [[ "$WSK_PKG_MGR" == "dnf" ]]
+  local iso_bin result_file="$WSK_TEST_HOME/result.txt"
+  iso_bin="$(_make_iso_bin dnf)"
+  bash -c "
+    export PATH='$iso_bin:/usr/bin:/bin'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    detect_pkg_mgr
+    echo \"\$WSK_PKG_MGR\" > '$result_file'
+  "
+  [[ "$(cat "$result_file")" == "dnf" ]]
+  rm -rf "$iso_bin"
 }
 
 @test "detect_pkg_mgr sets WSK_PKG_MGR=pacman when pacman present, higher-priority absent" {
-  stub_absent brew
-  stub_absent apt-get
-  stub_absent dnf
-  stub_present pacman
-  stub_absent winget
-
-  unset WSK_PKG_MGR
-  source "${WSK_DIR}/lib/os.sh"
-  detect_pkg_mgr
-  [[ "$WSK_PKG_MGR" == "pacman" ]]
+  local iso_bin result_file="$WSK_TEST_HOME/result.txt"
+  iso_bin="$(_make_iso_bin pacman)"
+  bash -c "
+    export PATH='$iso_bin:/usr/bin:/bin'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    detect_pkg_mgr
+    echo \"\$WSK_PKG_MGR\" > '$result_file'
+  "
+  [[ "$(cat "$result_file")" == "pacman" ]]
+  rm -rf "$iso_bin"
 }
 
 @test "detect_pkg_mgr returns non-zero and prints warning when no manager present" {
-  stub_absent brew
-  stub_absent apt-get
-  stub_absent dnf
-  stub_absent pacman
-  stub_absent winget
+  local iso_bin
+  iso_bin="$(_make_iso_bin "")"
 
-  unset WSK_PKG_MGR
-  source "${WSK_DIR}/lib/os.sh"
-  run detect_pkg_mgr
+  # Run in a fresh bash process; capture stderr into $stderr via --separate-stderr
+  run --separate-stderr bash -c "
+    export PATH=\"${iso_bin}:/usr/bin:/bin\"
+    source \"${WSK_DIR}/lib/log.sh\"
+    source \"${WSK_DIR}/lib/os.sh\"
+    detect_pkg_mgr
+  "
   [[ "$status" -ne 0 ]]
-  echo "$output" | grep -qi "no recognized package manager"
+  # stderr contains the WARN line from log_warn; output may be empty
+  [[ "${stderr:-}" =~ [Nn]o\ recognized\ package\ manager ]] || \
+    [[ "${output:-}" =~ [Nn]o\ recognized\ package\ manager ]]
+  rm -rf "$iso_bin"
 }
