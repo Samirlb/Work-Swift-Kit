@@ -314,7 +314,7 @@ Steps:
      then `pkg_install gentle-ai` (or `brew install gentle-ai` on macOS/linux-brew); then
      `CLAUDE_CONFIG_DIR="$cfg_dir" gentle-ai install --agent claude-code`. Idempotent via
      `command -v gentle-ai` before tap/install.
-   - **gsd**: `CLAUDE_CONFIG_DIR="$cfg_dir" npx --yes get-shit-done-cc --global` (Node prereq —
+   - **gsd**: `CLAUDE_CONFIG_DIR="$cfg_dir" npx get-shit-done-cc --global` (Node prereq —
      guard `command -v node`). Fallback if npx package unavailable: git clone (Decision D2).
    - **superpowers**: `git clone https://github.com/obra/superpowers "$cfg_dir/superpowers"` (skip
      if dir exists); then `log_info "Open Claude and run: /plugin install"`.
@@ -339,7 +339,7 @@ _persist_account_kv() {
 ### gsd source — Decision D2 (resolves proposal open question #1)
 
 - **Primary**: `npx --yes get-shit-done-cc --global` (npm, documented in exploration).
-- **Fallback remote (named)**: `https://github.com/Gentleman-Programming/get-shit-done` — git clone
+- **Fallback remote (named)**: `https://github.com/gsd-build/get-shit-done` — git clone
   into `$cfg_dir/gsd` if the npm package errors/404s. The fallback remote is pinned here so tasks
   and apply do not re-litigate it. (If apply discovers the canonical repo differs, that is a verify
   finding, not a silent change.)
@@ -387,7 +387,7 @@ clones from a configurable base repo, with the base pinned as a variable so task
 in six places:
 
 ```sh
-WSK_SKILLS_REPO="${WSK_SKILLS_REPO:-https://github.com/Gentleman-Programming/wsk-skills}"
+WSK_SKILLS_REPO="${WSK_SKILLS_REPO:-https://github.com/Gentleman-Programming/gentle-ai}"
 _fetch_skill() {
   local name="$1" dest="$2"
   # Layout assumption: repo contains skills/{name}/ ; shallow clone to tmp, copy one skill out.
