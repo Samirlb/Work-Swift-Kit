@@ -13,19 +13,6 @@ class WorkSwiftKit < Formula
 
   def install
     prefix.install Dir["*"]
-  end
-
-  def caveats
-    <<~EOS
-      To launch the interactive setup:
-        wsk install
-
-      To re-link your dotfiles without re-collecting accounts:
-        wsk relink
-    EOS
-  end
-
-  def post_install
     (bin/"wsk").write <<~EOS
       #!/usr/bin/env bash
       WSK_DIR="#{prefix}"
@@ -40,6 +27,16 @@ class WorkSwiftKit < Formula
       esac
     EOS
     chmod 0755, bin/"wsk"
+  end
+
+  def caveats
+    <<~EOS
+      To launch the interactive setup:
+        wsk install
+
+      To re-link your dotfiles without re-collecting accounts:
+        wsk relink
+    EOS
   end
 
   test do
