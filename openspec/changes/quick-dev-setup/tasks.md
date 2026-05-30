@@ -482,7 +482,7 @@ Verify FAIL (RED).
 
 ### 8.1 — Update `.github/workflows/ci.yml`
 
-- [ ] Convert `test` job to matrix strategy:
+- [x] Convert `test` job to matrix strategy:
   ```yaml
   strategy:
     fail-fast: false
@@ -490,7 +490,7 @@ Verify FAIL (RED).
       os: [macos-latest, ubuntu-latest]
   runs-on: ${{ matrix.os }}
   ```
-- [ ] Add conditional dep install steps:
+- [x] Add conditional dep install steps:
   - macOS: `brew install bats-core gum stow fzf gettext jq sd`
   - Ubuntu:
     ```bash
@@ -500,13 +500,13 @@ Verify FAIL (RED).
     cargo install sd || true
     ```
   - Note: `gum` not in apt; bats stubs supply the gum PATH shim so no charm repo needed.
-- [ ] Add `shellcheck` to Ubuntu lint job if not already there (it is — no change needed to lint job).
-- [ ] Verify existing test run command `bats tests/e2e/` works on both runners (PATH stubs make it hermetic).
+- [x] Add `shellcheck` to Ubuntu lint job if not already there (it is — no change needed to lint job).
+- [x] Verify existing test run command `bats tests/e2e/` works on both runners (PATH stubs make it hermetic).
 
 ### 8.2 — Verify CI changes pass locally (manual check)
 
-- [ ] Run `bats tests/e2e/` locally after WU-0 stubs are in place.
-- [ ] Confirm `shellcheck lib/*.sh templates/*.sh install.sh` passes.
+- [x] Run `bats tests/e2e/` locally after WU-0 stubs are in place.
+- [x] Confirm `shellcheck lib/*.sh templates/*.sh install.sh` passes.
 
 **Commit**: `ci: add ubuntu-latest to bats test matrix`
 
@@ -521,16 +521,16 @@ Verify FAIL (RED).
 
 ### 9.1 — Update `README.md`
 
-- [ ] Add `wsk ai` to the commands table / usage section.
-- [ ] Add cross-OS note: "macOS and Linux supported; Windows prints setup instructions without crashing."
-- [ ] Add new dependencies section: Node.js, pnpm, Claude Code, codegraph (optional).
-- [ ] Document the AI dev layer setup flow (framework choice per account, curated skills).
-- [ ] Update `wsk doctor` / `wsk check` section noting new health sub-sections.
+- [x] Add `wsk ai` to the commands table / usage section.
+- [x] Add cross-OS note: "macOS and Linux supported; Windows prints setup instructions without crashing."
+- [x] Add new dependencies section: Node.js, pnpm, Claude Code, codegraph (optional).
+- [x] Document the AI dev layer setup flow (framework choice per account, curated skills).
+- [x] Update `wsk doctor` / `wsk check` section noting new health sub-sections.
 
 ### 9.2 — Update Homebrew Formula (if present)
 
-- [ ] Check for a `Formula/*.rb` file; if found update `desc`, `depends_on` (jq, sd if not already listed), and usage string.
-- [ ] Verify formula references the updated `install.sh` dispatch.
+- [x] Check for a `Formula/*.rb` file; if found update `desc`, `depends_on` (jq, sd if not already listed), and usage string.
+- [x] Verify formula references the updated `install.sh` dispatch.
 
 **Commit**: `docs(readme): add wsk ai command, cross-OS note, and AI dev layer docs`
 
