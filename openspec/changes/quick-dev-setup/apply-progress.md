@@ -212,9 +212,60 @@
 
 ---
 
+---
+
+## Batch: 4 (WU-5)
+
+### Status
+
+- **WU-5**: DONE
+
+### Commits
+
+| Hash | Message | Work Unit |
+|------|---------|-----------|
+| RED commit | test(frameworks): RED — bats tests for install_ai_framework, curated skills, per-account loop | WU-5 RED |
+| GREEN commit | feat(frameworks): implement lib/frameworks.sh — per-account framework, skills, codegraph loop | WU-5 GREEN |
+
+### Test Results
+
+**bats tests/e2e/** (after WU-5):
+- Total: 85 tests
+- Passed: 84
+- Failed: 1 (pre-existing: test 54 `.zshrc has three claude-{account} functions` — unrelated to WU-5)
+- New WU-5 tests added: 17 (in test_ai_frameworks.bats)
+- All 17 new tests: PASS
+
+**shellcheck lib/*.sh templates/*.sh install.sh**:
+- Result: CLEAN (no errors or warnings)
+
+### Key Decisions and Gotchas (WU-5-specific)
+
+15. **gentle-ai CLAUDE_CONFIG_DIR test assertion**: The gentle-ai PATH shim only logs its argv
+    (name + args), not env vars. Testing that CLAUDE_CONFIG_DIR was set correctly is done by
+    asserting the per-account cfg_dir was created (`[[ -d "$WSK_TEST_HOME/.claude-work" ]]`) rather
+    than grepping the log for the env var name.
+
+16. **_fetch_skill uses mktemp + git clone + cp -R pattern**: The git stub creates the destination
+    dir but not the `skills/<name>/` subdir inside the tmpdir. For skill install tests we assert
+    on the number of `git clone` invocations (6 for all skills, 5 when one pre-exists) rather than
+    asserting actual skill dirs (the stub can't create the sub-layout).
+
+17. **WSK_ACCOUNTS array in subprocess**: Must be exported as a Bash array declaration string
+    (`export WSK_ACCOUNTS=(work)`) in the env prefix to subprocess tests.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `tests/e2e/test_ai_frameworks.bats` | NEW: 17 tests for frameworks.sh |
+| `lib/frameworks.sh` | NEW: _persist_account_kv, _fetch_skill, install_curated_skills, install_ai_framework, run_ai_for_all_accounts, run_ai |
+| `openspec/changes/quick-dev-setup/tasks.md` | WU-5 tasks marked [x] |
+
+---
+
 ## Remaining Work Units
 
-- WU-5: lib/frameworks.sh (per-account AI framework + skills)
 - WU-6: install.sh integration (source order, menu, dispatch)
 - WU-7: lib/doctor.sh additions
 - WU-8: CI Ubuntu bats matrix

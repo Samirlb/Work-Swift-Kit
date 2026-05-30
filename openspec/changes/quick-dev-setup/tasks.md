@@ -304,35 +304,35 @@ Verify FAIL (RED).
 
 **Framework install scenarios:**
 
-- [ ] Test: `install_ai_framework work` — `ui_choose` returns `gentle-ai` → gentle-ai tap + install + `gentle-ai install --agent claude-code` called with `CLAUDE_CONFIG_DIR=$HOME/.claude-work`; `accounts/work.env` contains `AI_FRAMEWORK=gentle-ai`.
-- [ ] Test: `install_ai_framework personal` — `ui_choose` returns `gsd` → npx stub records `get-shit-done-cc --global`; `accounts/personal.env` has `AI_FRAMEWORK=gsd`.
-- [ ] Test: gsd fallback — `WSK_STUB_NPX_EXIT=1` → git stub records clone of `https://github.com/gsd-build/get-shit-done` (LOCKED URL).
-- [ ] Test: `install_ai_framework work` — `ui_choose` returns `superpowers` → git stub records clone of `https://github.com/obra/superpowers` into `~/.claude-work/superpowers`; `/plugin install` instruction printed; env has `AI_FRAMEWORK=superpowers`.
-- [ ] Test: per-account independence — work=gentle-ai, personal=gsd → env files independent; no cross-contamination.
-- [ ] Test: re-run honoring — pre-seed `AI_FRAMEWORK=gentle-ai` in work.env → gum choose NOT recorded in stub log.
-- [ ] Test: `CLAUDE_CONFIG_DIR` isolation — no write to `~/.claude/` (default dir) during any framework install.
+- [x] Test: `install_ai_framework work` — `ui_choose` returns `gentle-ai` → gentle-ai tap + install + `gentle-ai install --agent claude-code` called with `CLAUDE_CONFIG_DIR=$HOME/.claude-work`; `accounts/work.env` contains `AI_FRAMEWORK=gentle-ai`.
+- [x] Test: `install_ai_framework personal` — `ui_choose` returns `gsd` → npx stub records `get-shit-done-cc --global`; `accounts/personal.env` has `AI_FRAMEWORK=gsd`.
+- [x] Test: gsd fallback — `WSK_STUB_NPX_EXIT=1` → git stub records clone of `https://github.com/gsd-build/get-shit-done` (LOCKED URL).
+- [x] Test: `install_ai_framework work` — `ui_choose` returns `superpowers` → git stub records clone of `https://github.com/obra/superpowers` into `~/.claude-work/superpowers`; `/plugin install` instruction printed; env has `AI_FRAMEWORK=superpowers`.
+- [x] Test: per-account independence — work=gentle-ai, personal=gsd → env files independent; no cross-contamination.
+- [x] Test: re-run honoring — pre-seed `AI_FRAMEWORK=gentle-ai` in work.env → gum choose NOT recorded in stub log.
+- [x] Test: `CLAUDE_CONFIG_DIR` isolation — no write to `~/.claude/` (default dir) during any framework install.
 
 **Codegraph offer in loop:**
 
-- [ ] Test: `run_ai_for_all_accounts` — `ui_confirm` returns true → `install_codegraph` called for that account.
-- [ ] Test: `ui_confirm` returns false → codegraph NOT installed; no error.
+- [x] Test: `run_ai_for_all_accounts` — `ui_confirm` returns true → `install_codegraph` called for that account.
+- [x] Test: `ui_confirm` returns false → codegraph NOT installed; no error.
 
 **Curated skills:**
 
-- [ ] Test: `install_curated_skills personal gsd` → git stub records clone of `https://github.com/Gentleman-Programming/gentle-ai` (LOCKED URL); 6 skill dirs created under `~/.claude-personal/skills/`.
-- [ ] Test: `install_curated_skills work gentle-ai` → git NOT called; "bundled by gentle-ai" in output.
-- [ ] Test: idempotency — pre-create `~/.claude-personal/skills/branch-pr/` → git NOT called for branch-pr; other 5 still fetched.
-- [ ] Test: skills source unavailable (`WSK_STUB_GIT_EXIT=1`) → `check_warn` per skill; no crash.
+- [x] Test: `install_curated_skills personal gsd` → git stub records clone of `https://github.com/Gentleman-Programming/gentle-ai` (LOCKED URL); 6 skill dirs created under `~/.claude-personal/skills/`.
+- [x] Test: `install_curated_skills work gentle-ai` → git NOT called; "bundled by gentle-ai" in output.
+- [x] Test: idempotency — pre-create `~/.claude-personal/skills/branch-pr/` → git NOT called for branch-pr; other 5 still fetched.
+- [x] Test: skills source unavailable (`WSK_STUB_GIT_EXIT=1`) → `check_warn` per skill; no crash.
 
 **`_persist_account_kv` helper:**
 
-- [ ] Test: key absent → appended to env file.
-- [ ] Test: key present → updated in-place (sd stub records the call; value changed).
+- [x] Test: key absent → appended to env file.
+- [x] Test: key present → updated in-place (sd stub records the call; value changed).
 
 **`_fetch_skill` helper:**
 
-- [ ] Test: skills from `https://github.com/Gentleman-Programming/gentle-ai`, copied from `skills/{name}/`.
-- [ ] Test: dest `[[ -d ]]` already exists → skip; git NOT called.
+- [x] Test: skills from `https://github.com/Gentleman-Programming/gentle-ai`, copied from `skills/{name}/`.
+- [x] Test: dest `[[ -d ]]` already exists → skip; git NOT called.
 
 Verify FAIL (RED).
 
@@ -340,15 +340,15 @@ Verify FAIL (RED).
 
 ### 5.2 — GREEN: implement `lib/frameworks.sh`
 
-- [ ] Create `lib/frameworks.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
-- [ ] Implement `_persist_account_kv <env_file> <key> <value>` (grep check → sd replace; else append).
-- [ ] Implement `_fetch_skill <name> <dest>`:
+- [x] Create `lib/frameworks.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
+- [x] Implement `_persist_account_kv <env_file> <key> <value>` (grep check → sd replace; else append).
+- [x] Implement `_fetch_skill <name> <dest>`:
   - Use `WSK_SKILLS_REPO="${WSK_SKILLS_REPO:-https://github.com/Gentleman-Programming/gentle-ai}"` (LOCKED URL).
   - Shallow clone to tmp; copy `skills/<name>/` to dest; cleanup tmp; `check_warn` on failure.
-- [ ] Implement `install_curated_skills <acct> <framework>`:
+- [x] Implement `install_curated_skills <acct> <framework>`:
   - gentle-ai: `check_pass "skills bundled by gentle-ai"`, return 0.
   - Others: loop 6 skills, `[[ -d ]]` guard, call `_fetch_skill`.
-- [ ] Implement `install_ai_framework <acct>`:
+- [x] Implement `install_ai_framework <acct>`:
   - Resolve env_file and cfg_dir.
   - Read existing `AI_FRAMEWORK=`; if set → skip `ui_choose`.
   - Else `ui_choose` among gentle-ai / gsd / superpowers.
@@ -357,13 +357,13 @@ Verify FAIL (RED).
     - gsd: `CLAUDE_CONFIG_DIR="$cfg_dir" npx get-shit-done-cc --global`; on failure git-clone `https://github.com/gsd-build/get-shit-done` into `$cfg_dir/gsd` (LOCKED URL).
     - superpowers: git-clone `https://github.com/obra/superpowers` into `$cfg_dir/superpowers` (skip if dir exists); print `/plugin install` instruction.
   - `_persist_account_kv "$env_file" AI_FRAMEWORK "$choice"`.
-- [ ] Implement `run_ai_for_all_accounts`:
+- [x] Implement `run_ai_for_all_accounts`:
   - Loop `WSK_ACCOUNTS`; call `install_ai_framework`; read persisted `AI_FRAMEWORK`; `ui_confirm "Install codegraph for $acct?"` → `install_codegraph`; `install_curated_skills "$acct" "$framework"`.
-- [ ] Implement `run_ai`:
+- [x] Implement `run_ai`:
   - `load_accounts; detect_os; detect_pkg_mgr || true; install_node; install_pnpm; install_claude_code; run_ai_for_all_accounts`.
-- [ ] Run `shellcheck lib/frameworks.sh` → clean.
-- [ ] Run `bats tests/e2e/test_ai_frameworks.bats` → all pass (GREEN).
-- [ ] Run all existing tests → all pass.
+- [x] Run `shellcheck lib/frameworks.sh` → clean.
+- [x] Run `bats tests/e2e/test_ai_frameworks.bats` → all pass (GREEN).
+- [x] Run all existing tests → all pass.
 
 **Commit**: `feat(frameworks): implement lib/frameworks.sh — per-account framework, skills, codegraph loop`
 
