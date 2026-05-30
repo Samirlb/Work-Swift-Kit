@@ -7,8 +7,8 @@ Interactive macOS dev environment setup for multi-account workflows (work, perso
 ## Install via Homebrew
 
 ```bash
-brew tap Samirlb/work-swift-kit
-brew install work-swift-kit
+brew tap Samirlb/work-swift-kit https://github.com/Samirlb/Work-Swift-Kit
+brew install Samirlb/work-swift-kit/work-swift-kit
 wsk
 ```
 
