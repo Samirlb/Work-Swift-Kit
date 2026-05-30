@@ -2,7 +2,7 @@
 # shellcheck disable=SC1091
 set -euo pipefail
 
-WSK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WSK_DIR="${WSK_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}"
 export WSK_DIR
 
 source "${WSK_DIR}/lib/log.sh"
@@ -16,6 +16,13 @@ source "${WSK_DIR}/lib/terminals.sh"
 source "${WSK_DIR}/lib/packages.sh"
 source "${WSK_DIR}/lib/render.sh"
 source "${WSK_DIR}/lib/stow.sh"
+
+if [[ "${1:-}" == "--relink" ]]; then
+  render_all
+  link_dotfiles
+  log_success "Dotfiles re-linked."
+  exit 0
+fi
 
 ui_header "Work-Swift-Kit" "Customizable macOS dev environment setup"
 
