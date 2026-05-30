@@ -2,15 +2,36 @@
 set -euo pipefail
 
 install_packages() {
-  local pkgs=(git gh fzf ripgrep bat eza fd sd starship zoxide jq tree)
+  # label:binary — package name for the installer; binary name for idempotency (command -v).
+  # pkg_install receives the BINARY name so command -v guard works correctly.
+  # Where label == binary, only one token is needed; split on ':' when they differ.
+  local pkg_pairs=(
+    git:git
+    gh:gh
+    fzf:fzf
+    ripgrep:rg
+    bat:bat
+    eza:eza
+    fd:fd
+    sd:sd
+    starship:starship
+    zoxide:zoxide
+    jq:jq
+    tree:tree
+  )
 
   log_info "Installing base packages..."
-  for pkg in "${pkgs[@]}"; do
-    if ! brew list "$pkg" &>/dev/null; then
-      ui_spin "Installing $pkg..." -- brew install "$pkg"
-      log_success "Installed $pkg."
+  local label binary
+  for pair in "${pkg_pairs[@]}"; do
+    label="${pair%%:*}"
+    binary="${pair#*:}"
+    # pkg_install uses the binary for command -v idempotency check and the same
+    # value as the install target. When binary != package name (e.g. ripgrep/rg)
+    # we pre-check with command -v binary; if absent, install the label.
+    if command -v "$binary" &>/dev/null; then
+      log_info "$label already installed, skipping."
     else
-      log_info "$pkg already installed, skipping."
+      pkg_install "$label"
     fi
   done
 }
