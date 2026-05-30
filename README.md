@@ -19,9 +19,37 @@ curl -fsSL https://raw.githubusercontent.com/Samirlb/Work-Swift-Kit/main/install
 
 ## Usage
 
+Run `wsk` with no arguments to open the interactive menu:
+
 ```bash
-wsk install   # interactive setup (accounts, terminals, dotfiles)
-wsk relink    # re-render and re-link dotfiles without re-collecting accounts
+wsk
+```
+
+Or call any action directly:
+
+| Command         | What it does                                                       |
+| --------------- | ------------------------------------------------------------------ |
+| `wsk`           | Open the interactive menu                                          |
+| `wsk setup`     | Full setup: accounts, packages, terminals, gh auth, dotfiles       |
+| `wsk accounts`  | Configure accounts and authentication only                         |
+| `wsk terminals` | Install terminals/editors only                                     |
+| `wsk doctor`    | Check configuration — read-only health check of tools, links, accounts |
+| `wsk update`    | Update the kit, upgrade CLI tools, optionally refresh dotfiles     |
+| `wsk relink`    | Re-render and re-link dotfiles without re-collecting accounts      |
+| `wsk --help`    | Show command reference                                             |
+
+> `wsk install` still works as an alias for `wsk setup` (back-compat).
+
+### The menu
+
+```
+  Full setup           Install everything and configure all tools
+  Accounts only        Configure accounts and authentication
+  Terminals only       Setup shells, aliases and terminal tools
+  Check configuration  Verify installed tools, links and accounts
+  Update               Pull latest kit and upgrade packages
+  Re-link configs      Re-symlink existing configuration files
+  Quit                 Exit the installer
 ```
 
 ## What it sets up
@@ -35,7 +63,7 @@ wsk relink    # re-render and re-link dotfiles without re-collecting accounts
 
 ## Walkthrough
 
-1. Run `wsk install`
+1. Run `wsk` and choose **Full setup**
 2. Bootstrap installs: gum, stow, fzf, gettext (if missing)
 3. Enter details for each account: name, email, GitHub user, projects dir, SSH key
 4. Choose terminals/editors: Warp, iTerm2, Alacritty, WezTerm, Kitty, Neovim

@@ -3,6 +3,19 @@ set -euo pipefail
 
 WSK_ACCOUNTS=()
 
+# Populate WSK_ACCOUNTS from previously saved accounts/*.env (no prompts).
+# Needed by relink / doctor / update, which run without re-collecting input.
+load_accounts() {
+  WSK_ACCOUNTS=()
+  [[ -d "${WSK_DIR}/accounts" ]] || return 0
+  local env_file acct_name
+  for env_file in "${WSK_DIR}/accounts/"*.env; do
+    [[ -e "$env_file" ]] || continue
+    acct_name=$(basename "$env_file" .env)
+    WSK_ACCOUNTS+=("$acct_name")
+  done
+}
+
 _collect_single_account() {
   local name="$1"
   local display_label="${2:-$name}"

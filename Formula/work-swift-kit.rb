@@ -17,11 +17,25 @@ class WorkSwiftKit < Formula
       #!/usr/bin/env bash
       WSK_DIR="#{prefix}"
       export WSK_DIR
-      case "$1" in
-        install) exec bash "$WSK_DIR/install.sh" ;;
-        relink)  exec bash "$WSK_DIR/install.sh" --relink ;;
+      case "${1:-}" in
+        ""|menu)                       exec bash "$WSK_DIR/install.sh" ;;
+        setup|accounts|terminals|relink|doctor|check|update)
+                                       exec bash "$WSK_DIR/install.sh" "$1" ;;
+        install)                       exec bash "$WSK_DIR/install.sh" setup ;;  # back-compat
+        -h|--help|help)
+          echo "Usage: wsk [command]"
+          echo
+          echo "  (no command)  Open the interactive menu"
+          echo "  setup         Full setup: accounts, packages, terminals, dotfiles"
+          echo "  accounts      Configure accounts only"
+          echo "  terminals     Install terminals/editors only"
+          echo "  doctor        Check configuration (read-only health check)"
+          echo "  update        Update the kit and upgrade packages"
+          echo "  relink        Re-symlink dotfiles without re-collecting accounts"
+          ;;
         *)
-          echo "Usage: wsk [install|relink]"
+          echo "Unknown command: $1" >&2
+          echo "Run 'wsk --help' for usage." >&2
           exit 1
           ;;
       esac
@@ -31,11 +45,14 @@ class WorkSwiftKit < Formula
 
   def caveats
     <<~EOS
-      To launch the interactive setup:
-        wsk install
+      To open the interactive menu:
+        wsk
 
-      To re-link your dotfiles without re-collecting accounts:
-        wsk relink
+      Direct commands:
+        wsk setup      # full setup
+        wsk doctor     # check configuration
+        wsk update     # update kit and tools
+        wsk relink     # re-link dotfiles
     EOS
   end
 
