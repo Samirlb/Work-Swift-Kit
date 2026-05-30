@@ -6,7 +6,7 @@ class WorkSwiftKit < Formula
   license "MIT"
 
   depends_on "gum"
-  depends_on "gnu-stow"
+  depends_on "stow"
   depends_on "fzf"
   depends_on "gettext"
   depends_on :macos
