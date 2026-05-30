@@ -56,13 +56,13 @@ Parallel opportunities:
 
 ### 0.1 — Extend `tests/helpers/setup.bash` with stub infrastructure
 
-- [ ] Add `WSK_STUB_LOG` initialisation in `init_test_home` (creates `$WSK_TEST_HOME/stub-calls.log`).
-- [ ] Add a `stub_bin_dir` (`$WSK_TEST_HOME/bin`) prepended to `PATH` in `init_test_home`.
-- [ ] Add helper `stub_present <name>` — writes an executable shim at `$stub_bin_dir/<name>` that records invocation to `$WSK_STUB_LOG` and returns 0.
-- [ ] Add helper `stub_absent <name>` — removes `$stub_bin_dir/<name>`.
-- [ ] Add helper `assert_stub_called <pattern>` — `grep -q "<pattern>" "$WSK_STUB_LOG"` or fail with diff.
-- [ ] Add helper `assert_stub_not_called <pattern>` — inverse of above.
-- [ ] Add helper `stub_log` — prints `$WSK_STUB_LOG` for debugging.
+- [x] Add `WSK_STUB_LOG` initialisation in `init_test_home` (creates `$WSK_TEST_HOME/stub-calls.log`).
+- [x] Add a `stub_bin_dir` (`$WSK_TEST_HOME/bin`) prepended to `PATH` in `init_test_home`.
+- [x] Add helper `stub_present <name>` — writes an executable shim at `$stub_bin_dir/<name>` that records invocation to `$WSK_STUB_LOG` and returns 0.
+- [x] Add helper `stub_absent <name>` — removes `$stub_bin_dir/<name>`.
+- [x] Add helper `assert_stub_called <pattern>` — `grep -q "<pattern>" "$WSK_STUB_LOG"` or fail with diff.
+- [x] Add helper `assert_stub_not_called <pattern>` — inverse of above.
+- [x] Add helper `stub_log` — prints `$WSK_STUB_LOG` for debugging.
 
 ### 0.2 — Add all required PATH shims
 
@@ -83,13 +83,13 @@ Special shim behaviors:
 
 ### 0.3 — Presence toggle helpers
 
-- [ ] Add `node_present` / `node_absent` convenience wrappers around `stub_present node` / `stub_absent node`.
-- [ ] Add equivalent wrappers for `pnpm`, `corepack`, `claude`, `codegraph`, `npx`, `gentle-ai`.
+- [x] Add `node_present` / `node_absent` convenience wrappers around `stub_present node` / `stub_absent node`.
+- [x] Add equivalent wrappers for `pnpm`, `corepack`, `claude`, `codegraph`, `npx`, `gentle-ai`.
 
 ### 0.4 — Shellcheck + CI sanity
 
-- [ ] Run `shellcheck tests/helpers/setup.bash` (use `bash` dialect directive if needed).
-- [ ] Verify bats loads correctly: `bats tests/e2e/test_fresh_install.bats` still passes (existing tests unbroken).
+- [x] Run `shellcheck tests/helpers/setup.bash` (use `bash` dialect directive if needed).
+- [x] Verify bats loads correctly: `bats tests/e2e/test_fresh_install.bats` still passes (existing tests unbroken).
 
 **Commit**: `test(stubs): add PATH-shim infrastructure and stub helpers to setup.bash`
 
@@ -103,15 +103,15 @@ Special shim behaviors:
 
 ### 1.1 — RED: write failing bats test file `tests/e2e/test_os_detection.bats`
 
-- [ ] Test: `detect_os` sets `WSK_OS=macos` when `uname` returns `Darwin`.
-- [ ] Test: `detect_os` sets `WSK_OS=linux` when `uname` returns `Linux` and `MSYSTEM` unset.
-- [ ] Test: `detect_os` sets `WSK_OS=windows` when `MSYSTEM` is set.
-- [ ] Test: `detect_os` sets `WSK_OS=windows` when `/proc/version` contains `microsoft`.
-- [ ] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=brew` when `brew` shim present, others absent.
-- [ ] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=apt` when `apt-get` shim present, brew absent.
-- [ ] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=dnf` correctly.
-- [ ] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=pacman` correctly.
-- [ ] Test: `detect_pkg_mgr` returns non-zero and prints warning when no manager present.
+- [x] Test: `detect_os` sets `WSK_OS=macos` when `uname` returns `Darwin`.
+- [x] Test: `detect_os` sets `WSK_OS=linux` when `uname` returns `Linux` and `MSYSTEM` unset.
+- [x] Test: `detect_os` sets `WSK_OS=windows` when `MSYSTEM` is set.
+- [x] Test: `detect_os` sets `WSK_OS=windows` when `/proc/version` contains `microsoft`.
+- [x] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=brew` when `brew` shim present, others absent.
+- [x] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=apt` when `apt-get` shim present, brew absent.
+- [x] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=dnf` correctly.
+- [x] Test: `detect_pkg_mgr` sets `WSK_PKG_MGR=pacman` correctly.
+- [x] Test: `detect_pkg_mgr` returns non-zero and prints warning when no manager present.
 
 Verify these tests FAIL (RED) — `lib/os.sh` does not exist yet.
 
@@ -119,14 +119,14 @@ Verify these tests FAIL (RED) — `lib/os.sh` does not exist yet.
 
 ### 1.2 — RED: write failing bats test file `tests/e2e/test_pkg_install.bats`
 
-- [ ] Test: `WSK_PKG_MGR=brew`, `pkg_install git` → `brew install git` recorded in stub log.
-- [ ] Test: `WSK_PKG_MGR=apt`, `pkg_install git` → `apt-get install -y git` recorded.
-- [ ] Test: `WSK_PKG_MGR=dnf`, `pkg_install git` → `dnf install -y git` recorded.
-- [ ] Test: `WSK_PKG_MGR=pacman`, `pkg_install git` → `pacman -S --noconfirm git` recorded.
-- [ ] Test: `WSK_OS=windows`, `pkg_install git` → no manager stub called; instruction printed.
-- [ ] Test: idempotency — `git` shim present → no manager called; "already installed" in output.
-- [ ] Test: `--cask` flag with `WSK_PKG_MGR=brew` → `brew install --cask <pkg>` recorded.
-- [ ] Test: `--cask` guard uses `brew list --cask` instead of `command -v`.
+- [x] Test: `WSK_PKG_MGR=brew`, `pkg_install <absent-pkg>` → `brew install <pkg>` recorded in stub log.
+- [x] Test: `WSK_PKG_MGR=apt`, `pkg_install <absent-pkg>` → `apt-get install -y <pkg>` recorded.
+- [x] Test: `WSK_PKG_MGR=dnf`, `pkg_install <absent-pkg>` → `dnf install -y <pkg>` recorded.
+- [x] Test: `WSK_PKG_MGR=pacman`, `pkg_install <absent-pkg>` → `pacman -S --noconfirm <pkg>` recorded.
+- [x] Test: `WSK_OS=windows`, `pkg_install <pkg>` → no manager stub called; instruction printed.
+- [x] Test: idempotency — package shim present → no manager called; "already installed" in output.
+- [x] Test: `--cask` flag with `WSK_PKG_MGR=brew` → `brew install --cask <pkg>` recorded.
+- [x] Test: `--cask` guard uses `brew list --cask` instead of `command -v`.
 
 Verify FAIL (RED).
 
@@ -134,10 +134,10 @@ Verify FAIL (RED).
 
 ### 1.3 — GREEN: implement `lib/os.sh`
 
-- [ ] Create `lib/os.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
-- [ ] Implement `detect_os` exactly as designed (Windows → `/proc/version` + MSYSTEM + uname MINGW/MSYS/CYGWIN; Darwin; Linux; default linux).
-- [ ] Implement `detect_pkg_mgr` exactly as designed (priority order: brew → apt-get → dnf → pacman → winget; warn + return 1 if none).
-- [ ] Implement `pkg_install <package> [--cask]` exactly as designed:
+- [x] Create `lib/os.sh` with `#!/usr/bin/env bash` + `set -euo pipefail`.
+- [x] Implement `detect_os` exactly as designed (Windows → `/proc/version` + MSYSTEM + uname MINGW/MSYS/CYGWIN; Darwin; Linux; default linux).
+- [x] Implement `detect_pkg_mgr` exactly as designed (priority order: brew → apt-get → dnf → pacman → winget; warn + return 1 if none).
+- [x] Implement `pkg_install <package> [--cask]` exactly as designed:
   - Parse `--cask` flag.
   - Idempotency: `command -v` for regular packages; `brew list --cask` for cask.
   - Windows: print instruction, return 0.
@@ -146,10 +146,10 @@ Verify FAIL (RED).
   - apt: `log_info "Installing $pkg..."` then `sudo apt-get install -y "$pkg"`.
   - dnf: `log_info "Installing $pkg..."` then `sudo dnf install -y "$pkg"`.
   - pacman: `log_info "Installing $pkg..."` then `sudo pacman -S --noconfirm "$pkg"`.
-- [ ] Run `shellcheck lib/os.sh` → clean.
-- [ ] Run `bats tests/e2e/test_os_detection.bats` → all pass (GREEN).
-- [ ] Run `bats tests/e2e/test_pkg_install.bats` → all pass (GREEN).
-- [ ] Run existing tests → all still pass.
+- [x] Run `shellcheck lib/os.sh` → clean.
+- [x] Run `bats tests/e2e/test_os_detection.bats` → all pass (GREEN).
+- [x] Run `bats tests/e2e/test_pkg_install.bats` → all pass (GREEN).
+- [x] Run existing tests → all still pass.
 
 **Commit**: `feat(os): implement lib/os.sh — detect_os, detect_pkg_mgr, pkg_install`
 
