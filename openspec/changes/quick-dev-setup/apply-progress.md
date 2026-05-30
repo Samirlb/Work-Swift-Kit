@@ -264,9 +264,71 @@
 
 ---
 
+---
+
+## Batch: 5 (WU-6 and WU-7)
+
+### Status
+
+- **WU-6**: DONE
+- **WU-7**: DONE
+
+### Commits
+
+| Hash    | Message                                                                                      | Work Unit |
+|---------|----------------------------------------------------------------------------------------------|-----------|
+| ed96eef | test(install): RED — dispatch and menu entry tests for wsk ai                                | WU-6 RED  |
+| bc26cc7 | feat(install): wire ai dispatch, menu entry, and full-setup AI steps                        | WU-6 GREEN|
+| 4987871 | test(doctor): RED — bats tests for AI/OS/node/framework/skills health sections               | WU-7 RED  |
+| b83741a | feat(doctor): add OS/node/claude/framework/codegraph/skills health sections                 | WU-7 GREEN|
+
+### Test Results
+
+**bats tests/e2e/** (after WU-6 + WU-7):
+- Total: 113 tests
+- Passed: 112
+- Failed: 1 (pre-existing: `.zshrc has three claude-{account} functions` — unrelated)
+- WU-6 new tests: 13 (in test_install_ai_dispatch.bats)
+- WU-7 new tests: 15 (in test_doctor_ai.bats)
+- All new tests: PASS
+
+**shellcheck lib/*.sh templates/*.sh install.sh**:
+- Result: CLEAN (no errors or warnings)
+
+### Key Decisions and Gotchas (WU-6/WU-7-specific)
+
+18. **WU-6 source order**: New libs (os.sh, node.sh, claude.sh, frameworks.sh) are sourced after accounts.sh
+    and before terminals.sh, so all lib functions are available for run_full_setup's AI steps.
+
+19. **WU-6 run_full_setup ordering**: AI steps (detect_os → install_node → install_pnpm →
+    install_claude_code → run_ai_for_all_accounts) are placed AFTER install_terminals and BEFORE
+    setup_gh_accounts. This ensures base packages are installed before AI tooling.
+
+20. **WU-7 WSK_PKG_MGR detection guard**: Doctor uses `${WSK_PKG_MGR+x}` (not `${WSK_PKG_MGR:-}`)
+    to check if the variable is exported at all. This preserves test-injected empty values: when a
+    test exports `WSK_PKG_MGR=''`, doctor reports "no recognized package manager" instead of
+    re-running detect_pkg_mgr and finding brew on the stub PATH.
+
+21. **WU-7 codegraph check is global** (not per-account): One codegraph check runs before the
+    per-account framework loop. This matches the spec scenario ("command -v codegraph → check_pass
+    or check_warn") which doesn't specify per-account granularity.
+
+22. **WU-7 gsd detection**: Doctor checks both `command -v get-shit-done-cc` and `command -v gsd`
+    for the gsd framework, matching how gsd exposes itself on PATH depending on install method.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `install.sh` | Source order: added os.sh, node.sh, claude.sh, frameworks.sh; run_full_setup AI steps; ai) dispatch case; menu entries |
+| `tests/e2e/test_install_ai_dispatch.bats` | NEW: 13 tests for install.sh AI wiring |
+| `lib/doctor.sh` | Added: OS/pkg-mgr, Node/pnpm, Claude, AI frameworks, codegraph, skills sub-sections |
+| `tests/e2e/test_doctor_ai.bats` | NEW: 15 tests for doctor.sh AI health sections |
+| `openspec/changes/quick-dev-setup/tasks.md` | WU-6 and WU-7 tasks marked [x] |
+
+---
+
 ## Remaining Work Units
 
-- WU-6: install.sh integration (source order, menu, dispatch)
-- WU-7: lib/doctor.sh additions
 - WU-8: CI Ubuntu bats matrix
 - WU-9: README + Formula updates

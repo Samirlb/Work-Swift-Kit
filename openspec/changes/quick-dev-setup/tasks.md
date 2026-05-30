@@ -377,9 +377,9 @@ Verify FAIL (RED).
 
 ### 6.1 — RED: write failing `tests/e2e/test_install_ai_dispatch.bats`
 
-- [ ] Test: `wsk ai` dispatch → `run_ai` called; accounts loaded; node/pnpm/claude/framework install loop runs.
-- [ ] Test: `run_full_setup` order — AI steps (node → pnpm → claude → per-account loop) run after packages and before render.
-- [ ] Test: menu entry "AI dev tools" exists in `ui_menu` call and triggers `run_ai`.
+- [x] Test: `wsk ai` dispatch → `run_ai` called; accounts loaded; node/pnpm/claude/framework install loop runs.
+- [x] Test: `run_full_setup` order — AI steps (node → pnpm → claude → per-account loop) run after packages and before render.
+- [x] Test: menu entry "AI dev tools" exists in `ui_menu` call and triggers `run_ai`.
 
 Verify FAIL (RED).
 
@@ -387,14 +387,14 @@ Verify FAIL (RED).
 
 ### 6.2 — GREEN: update `install.sh`
 
-- [ ] Add source statements after `accounts.sh` and before `terminals.sh`:
+- [x] Add source statements after `accounts.sh` and before `terminals.sh`:
   ```bash
   source "${WSK_DIR}/lib/os.sh"
   source "${WSK_DIR}/lib/node.sh"
   source "${WSK_DIR}/lib/claude.sh"
   source "${WSK_DIR}/lib/frameworks.sh"
   ```
-- [ ] Update `run_full_setup` to insert AI steps:
+- [x] Update `run_full_setup` to insert AI steps:
   ```bash
   detect_os; detect_pkg_mgr || true
   install_node
@@ -402,15 +402,15 @@ Verify FAIL (RED).
   install_claude_code
   run_ai_for_all_accounts
   ```
-  (placed after `setup_gh_accounts` and before `render_all`).
-- [ ] Add `ai) run_ai ;;` to `dispatch()`.
-- [ ] Update usage string: `wsk [setup|accounts|terminals|relink|doctor|update|ai]`.
-- [ ] Add menu entry in `ui_menu` call: `"AI dev tools::Install Claude Code, framework, codegraph and skills per account"`.
-- [ ] Add case in menu switch: `*"AI dev tools"*) run_ai ;;`.
-- [ ] Add tui_menu entry: `"ai::AI dev tools::Install Claude Code, framework, codegraph and skills per account"`.
-- [ ] Run `shellcheck install.sh` → clean.
-- [ ] Run `bats tests/e2e/test_install_ai_dispatch.bats` → all pass (GREEN).
-- [ ] Run all existing tests → all pass.
+  (placed after `install_terminals` and before `setup_gh_accounts`).
+- [x] Add `ai) run_ai ;;` to `dispatch()`.
+- [x] Update usage string: `wsk [setup|accounts|terminals|relink|doctor|update|ai]`.
+- [x] Add menu entry in `ui_menu` call: `"AI dev tools::Install Claude Code, framework, codegraph and skills per account"`.
+- [x] Add case in menu switch: `*"AI dev tools"*) run_ai ;;`.
+- [x] Add tui_menu entry: `"ai::AI dev tools::Install Claude Code, framework, codegraph and skills per account"`.
+- [x] Run `shellcheck install.sh` → clean.
+- [x] Run `bats tests/e2e/test_install_ai_dispatch.bats` → all pass (GREEN).
+- [x] Run all existing tests → all pass.
 
 **Commit**: `feat(install): wire ai dispatch, menu entry, and full-setup AI steps`
 
@@ -426,31 +426,31 @@ Verify FAIL (RED).
 ### 7.1 — RED: write failing `tests/e2e/test_doctor_ai.bats`
 
 OS/pkg-mgr section:
-- [ ] Test: both present → `check_pass "OS: macos"` and `check_pass "pkg manager: brew"` in output.
-- [ ] Test: `WSK_PKG_MGR` empty → `check_warn "no recognized package manager detected"` in output.
+- [x] Test: both present → `check_pass "OS: macos"` and `check_pass "pkg manager: brew"` in output.
+- [x] Test: `WSK_PKG_MGR` empty → `check_warn "no recognized package manager detected"` in output.
 
 Node/pnpm section:
-- [ ] Test: both present → `check_pass "node installed"` and `check_pass "pnpm installed"`.
-- [ ] Test: pnpm absent → `check_fail "pnpm missing"`.
+- [x] Test: both present → `check_pass "node installed"` and `check_pass "pnpm installed"`.
+- [x] Test: pnpm absent → `check_fail "pnpm missing"`.
 
 Claude Code section:
-- [ ] Test: claude present → `check_pass "claude installed"`.
-- [ ] Test: claude absent → `check_fail "claude not installed — run: wsk ai"`.
+- [x] Test: claude present → `check_pass "claude installed"`.
+- [x] Test: claude absent → `check_fail "claude not installed — run: wsk ai"`.
 
 Per-account framework section:
-- [ ] Test: `AI_FRAMEWORK=gentle-ai`, `gentle-ai` on PATH → `check_pass "work: AI_FRAMEWORK=gentle-ai (installed)"`.
-- [ ] Test: `AI_FRAMEWORK=gsd`, gsd absent → `check_fail "personal: gsd not found on PATH"`.
-- [ ] Test: `AI_FRAMEWORK=superpowers`, dir exists → `check_pass "work: AI_FRAMEWORK=superpowers (installed)"`.
-- [ ] Test: `AI_FRAMEWORK` missing from env → `check_warn "work: AI_FRAMEWORK not set — run: wsk ai"`.
+- [x] Test: `AI_FRAMEWORK=gentle-ai`, `gentle-ai` on PATH → `check_pass "work: AI_FRAMEWORK=gentle-ai (installed)"`.
+- [x] Test: `AI_FRAMEWORK=gsd`, gsd absent → `check_fail "personal: gsd not found on PATH"`.
+- [x] Test: `AI_FRAMEWORK=superpowers`, dir exists → `check_pass "work: AI_FRAMEWORK=superpowers (installed)"`.
+- [x] Test: `AI_FRAMEWORK` missing from env → `check_warn "work: AI_FRAMEWORK not set — run: wsk ai"`.
 
 Codegraph section:
-- [ ] Test: codegraph present → `check_pass "codegraph installed"`.
-- [ ] Test: codegraph absent → `check_warn "codegraph not installed (optional)"`.
+- [x] Test: codegraph present → `check_pass "codegraph installed"`.
+- [x] Test: codegraph absent → `check_warn "codegraph not installed (optional)"`.
 
 Skills section:
-- [ ] Test: all 6 dirs present → 6 `check_pass` lines.
-- [ ] Test: `judgment-day/` missing → `check_warn "work: judgment-day skill missing"`.
-- [ ] Test: `AI_FRAMEWORK=gentle-ai` → `check_pass "work: skills bundled by gentle-ai"` (no per-skill checks).
+- [x] Test: all 6 dirs present → 6 `check_pass` lines.
+- [x] Test: `judgment-day/` missing → `check_warn "work: judgment-day skill missing"`.
+- [x] Test: `AI_FRAMEWORK=gentle-ai` → `check_pass "work: skills bundled by gentle-ai"` (no per-skill checks).
 
 Verify FAIL (RED).
 
@@ -458,16 +458,16 @@ Verify FAIL (RED).
 
 ### 7.2 — GREEN: update `lib/doctor.sh`
 
-- [ ] After `ui_subhead "Base packages"` block and before/replacing existing account loop top, insert new `ui_subhead` blocks in order:
-  1. `ui_subhead "OS / Package manager"` — call `detect_os; detect_pkg_mgr || true`; output `check_pass/check_warn`.
+- [x] After `ui_subhead "Base packages"` block and before/replacing existing account loop top, insert new `ui_subhead` blocks in order:
+  1. `ui_subhead "OS / Package manager"` — detect if not exported; output `check_pass/check_warn`.
   2. `ui_subhead "Node / pnpm"` — `command -v node/pnpm` checks.
   3. `ui_subhead "Claude Code"` — `command -v claude` check.
   4. `ui_subhead "AI frameworks (per account)"` — loop `WSK_ACCOUNTS`; read `AI_FRAMEWORK`; framework-specific presence check.
   5. Codegraph check inside the AI section.
   6. `ui_subhead "Skills (per account)"` — loop; gentle-ai short-circuit; else 6-skill dir loop.
-- [ ] Run `shellcheck lib/doctor.sh` → clean.
-- [ ] Run `bats tests/e2e/test_doctor_ai.bats` → all pass (GREEN).
-- [ ] Run all existing tests → all pass.
+- [x] Run `shellcheck lib/doctor.sh` → clean.
+- [x] Run `bats tests/e2e/test_doctor_ai.bats` → all pass (GREEN).
+- [x] Run all existing tests → all pass.
 
 **Commit**: `feat(doctor): add OS/node/claude/framework/codegraph/skills health sections`
 
