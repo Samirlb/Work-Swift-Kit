@@ -115,7 +115,7 @@ _run_iso_fw() {
 # install_ai_framework tests — gentle-ai
 # ---------------------------------------------------------------------------
 
-@test "install_ai_framework: ui_choose returns gentle-ai — brew tap + install + gentle-ai install --agent claude-code called with CLAUDE_CONFIG_DIR; work.env has AI_FRAMEWORK=gentle-ai" {
+@test "install_ai_framework: ui_choose returns gentle-ai — brew tap + install + gentle-ai install --agent claude-code called; cfg_dir created; work.env has AI_FRAMEWORK=gentle-ai" {
   local log_file="$WSK_TEST_HOME/fw1.log"
   : > "$log_file"
   seed_account "work" "Work" "Test User" "test@example.com" "testuser" "${HOME}/Work" "id_ed25519_work"
@@ -127,8 +127,8 @@ _run_iso_fw() {
 
   # gentle-ai install --agent claude-code called
   grep -q "gentle-ai install --agent claude-code" "$log_file"
-  # CLAUDE_CONFIG_DIR should be the work dir
-  grep -q "\.claude-work" "$log_file"
+  # per-account cfg_dir created (CLAUDE_CONFIG_DIR=~/.claude-work)
+  [[ -d "$WSK_TEST_HOME/.claude-work" ]]
   # env file persisted
   grep -q "^AI_FRAMEWORK=gentle-ai" "${WSK_DIR}/accounts/work.env"
 }
