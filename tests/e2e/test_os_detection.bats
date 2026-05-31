@@ -118,7 +118,7 @@ _make_iso_bin() {
   local iso_bin result_file="$WSK_TEST_HOME/result.txt"
   iso_bin="$(_make_iso_bin brew)"
   bash -c "
-    export PATH='$iso_bin:/usr/bin:/bin'
+    export PATH='$iso_bin'
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -132,7 +132,7 @@ _make_iso_bin() {
   local iso_bin result_file="$WSK_TEST_HOME/result.txt"
   iso_bin="$(_make_iso_bin apt-get)"
   bash -c "
-    export PATH='$iso_bin:/usr/bin:/bin'
+    export PATH='$iso_bin'
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -146,7 +146,7 @@ _make_iso_bin() {
   local iso_bin result_file="$WSK_TEST_HOME/result.txt"
   iso_bin="$(_make_iso_bin dnf)"
   bash -c "
-    export PATH='$iso_bin:/usr/bin:/bin'
+    export PATH='$iso_bin'
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -160,7 +160,7 @@ _make_iso_bin() {
   local iso_bin result_file="$WSK_TEST_HOME/result.txt"
   iso_bin="$(_make_iso_bin pacman)"
   bash -c "
-    export PATH='$iso_bin:/usr/bin:/bin'
+    export PATH='$iso_bin'
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -176,7 +176,7 @@ _make_iso_bin() {
 
   # Run in a fresh bash process; capture stderr into $stderr via --separate-stderr
   run --separate-stderr bash -c "
-    export PATH=\"${iso_bin}:/usr/bin:/bin\"
+    export PATH=\"${iso_bin}\"
     source \"${WSK_DIR}/lib/log.sh\"
     source \"${WSK_DIR}/lib/os.sh\"
     detect_pkg_mgr

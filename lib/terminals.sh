@@ -57,4 +57,6 @@ install_terminals() {
     esac
     [[ "$installed" -eq 1 ]] && log_success "Installed $item."
   done <<< "$selections"
+  # Warnings for unavailable terminals are not failures — always succeed.
+  return 0
 }
