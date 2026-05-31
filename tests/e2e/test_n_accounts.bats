@@ -54,10 +54,13 @@ teardown() {
   [ -f "${WSK_DIR}/stow/.claude-client/CLAUDE.md" ]
 }
 
-@test ".zshrc has three claude-{account} functions" {
+@test ".zshrc has one claude-profile switch function per account" {
   source "${WSK_DIR}/lib/render.sh"
   render_all
+  # Each account renders a `function <acct>()` that calls the shared
+  # _wsk_switch_profile helper (which sets CLAUDE_CONFIG_DIR). Count the calls
+  # (trailing space excludes the single `_wsk_switch_profile()` definition).
   local count
-  count=$(grep -c '^function claude-' "${WSK_DIR}/stow/.zshrc")
+  count=$(grep -c '_wsk_switch_profile ' "${WSK_DIR}/stow/.zshrc")
   [ "$count" -eq 3 ]
 }

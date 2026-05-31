@@ -41,6 +41,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y stow gettext-base jq fzf
           cargo install sd || true
-          npm install -g bats
+          sudo npm install -g bats
       - name: Run E2E tests
         run: bats tests/e2e/
