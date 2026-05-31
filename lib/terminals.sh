@@ -8,15 +8,55 @@ install_terminals() {
 
   [[ -z "$selections" ]] && return
 
+  local os="${WSK_OS:-macos}"
+
   while IFS= read -r item; do
+    local installed=1
     case "$item" in
-      Warp)      ui_spin "Installing Warp..."      -- brew install --cask warp ;;
-      iTerm2)    ui_spin "Installing iTerm2..."    -- brew install --cask iterm2 ;;
-      Alacritty) ui_spin "Installing Alacritty..." -- brew install --cask alacritty ;;
-      WezTerm)   ui_spin "Installing WezTerm..."   -- brew install --cask wezterm ;;
-      Kitty)     ui_spin "Installing Kitty..."     -- brew install --cask kitty ;;
-      Neovim)    ui_spin "Installing Neovim..."    -- brew install neovim ;;
+      Warp)
+        case "$os" in
+          macos)   pkg_install warp --cask ;;
+          windows) check_warn "$item: install manually on Windows"; installed=0 ;;
+          *)       check_warn "$item not available on Linux"; installed=0 ;;
+        esac
+        ;;
+      iTerm2)
+        case "$os" in
+          macos)   pkg_install iterm2 --cask ;;
+          windows) check_warn "$item: install manually on Windows"; installed=0 ;;
+          *)       check_warn "$item not available on Linux"; installed=0 ;;
+        esac
+        ;;
+      Alacritty)
+        case "$os" in
+          macos)   pkg_install alacritty --cask ;;
+          windows) check_warn "$item: install manually on Windows"; installed=0 ;;
+          *)       pkg_install alacritty ;;
+        esac
+        ;;
+      WezTerm)
+        case "$os" in
+          macos)   pkg_install wezterm --cask ;;
+          windows) check_warn "$item: install manually on Windows"; installed=0 ;;
+          *)       pkg_install wezterm ;;
+        esac
+        ;;
+      Kitty)
+        case "$os" in
+          macos)   pkg_install kitty --cask ;;
+          windows) check_warn "$item: install manually on Windows"; installed=0 ;;
+          *)       pkg_install kitty ;;
+        esac
+        ;;
+      Neovim)
+        case "$os" in
+          windows) check_warn "$item: install manually on Windows"; installed=0 ;;
+          *)       pkg_install neovim ;;
+        esac
+        ;;
     esac
-    log_success "Installed $item."
+    [[ "$installed" -eq 1 ]] && log_success "Installed $item."
   done <<< "$selections"
+  # Warnings for unavailable terminals are not failures — always succeed.
+  return 0
 }

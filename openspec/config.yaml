@@ -1,0 +1,56 @@
+schema: spec-driven
+
+project: Work-Swift-Kit
+
+context: |
+  Tech stack: Bash/zsh shell scripts (macOS-only CLI tool)
+  Entry point: install.sh dispatches subcommands; Homebrew Formula wraps as `wsk`
+  Source layout: lib/*.sh (bootstrap, ui, accounts, terminals, packages, render, stow, gh, doctor, update, tui), templates/*.sh, tools/*.sh
+  UI deps: gum (prompts/style), fzf (menus), stow (dotfile symlinks), gettext/envsubst (templates)
+  Tests: bats-core (tests/e2e/*.bats) + shellcheck; CI via .github/workflows/ci.yml
+  Platform: macOS-only (bootstrap.sh exits if not Darwin)
+
+testing:
+  strict_tdd: true
+  test_command: "bats tests/e2e/"
+  lint_command: "shellcheck lib/*.sh templates/*.sh install.sh"
+  framework: bats-core
+  layers:
+    unit: false
+    integration: false
+    e2e: true
+  coverage:
+    available: false
+    command: ""
+  quality_tools:
+    linter: shellcheck
+    type_checker: ""
+    formatter: ""
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Note macOS-only constraints when relevant
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Consider bats test structure for E2E scenarios
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Keep shell functions focused and composable
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Include shellcheck validation step for any new .sh files
+  apply:
+    - Follow existing code patterns (set -euo pipefail, lib/ module structure)
+    tdd: true
+    test_command: "bats tests/e2e/"
+    lint_command: "shellcheck lib/*.sh templates/*.sh install.sh"
+  verify:
+    test_command: "bats tests/e2e/"
+    build_command: "shellcheck lib/*.sh templates/*.sh install.sh"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
