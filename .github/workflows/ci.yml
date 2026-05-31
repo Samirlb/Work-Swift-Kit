@@ -15,11 +15,13 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get install -y shellcheck
       - name: Lint lib/
-        run: shellcheck lib/*.sh
+        run: shellcheck -x lib/*.sh
       - name: Lint templates/
-        run: shellcheck templates/*.sh
+        run: shellcheck -x templates/*.sh
       - name: Lint install.sh
-        run: shellcheck install.sh
+        run: shellcheck -x install.sh
+      - name: Lint tools/
+        run: shellcheck -x tools/*.sh
 
   test:
     name: E2E Tests
@@ -37,7 +39,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y bats stow gettext-base jq fzf
+          sudo apt-get install -y stow gettext-base jq fzf
           cargo install sd || true
+          npm install -g bats
       - name: Run E2E tests
         run: bats tests/e2e/
