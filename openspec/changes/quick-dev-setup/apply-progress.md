@@ -1,5 +1,9 @@
 # Apply Progress — quick-dev-setup
 
+## STATUS: ALL WORK UNITS COMPLETE (WU-0 through WU-9)
+
+---
+
 ## Batch: 1 (WU-0 and WU-1)
 
 ### Status
@@ -212,8 +216,6 @@
 
 ---
 
----
-
 ## Batch: 4 (WU-5)
 
 ### Status
@@ -261,8 +263,6 @@
 | `tests/e2e/test_ai_frameworks.bats` | NEW: 17 tests for frameworks.sh |
 | `lib/frameworks.sh` | NEW: _persist_account_kv, _fetch_skill, install_curated_skills, install_ai_framework, run_ai_for_all_accounts, run_ai |
 | `openspec/changes/quick-dev-setup/tasks.md` | WU-5 tasks marked [x] |
-
----
 
 ---
 
@@ -328,7 +328,73 @@
 
 ---
 
-## Remaining Work Units
+## Batch: 6 (WU-8 and WU-9)
 
-- WU-8: CI Ubuntu bats matrix
-- WU-9: README + Formula updates
+### Status
+
+- **WU-8**: DONE
+- **WU-9**: DONE
+
+### Commits
+
+| Hash | Message | Work Unit |
+|------|---------|-----------|
+| (latest-2) | ci: add ubuntu-latest to bats test matrix | WU-8 |
+| (latest-1) | docs(readme): add wsk ai command, cross-OS note, and AI dev layer docs | WU-9 |
+| (latest) | chore(sdd): mark WU-8 and WU-9 complete in tasks | housekeeping |
+
+### Test Results (final — after WU-8 + WU-9)
+
+**bats tests/e2e/**:
+- Total: 113 tests
+- Passed: 112
+- Failed: 1 (pre-existing: test 82 `.zshrc has three claude-{account} functions` — unrelated to WU-8/WU-9)
+- No new bats tests for WU-8/WU-9 (CI config and docs — standard mode)
+- All existing tests: unchanged PASS
+
+**shellcheck lib/*.sh templates/*.sh install.sh**:
+- Result: CLEAN (no errors or warnings)
+
+**CI YAML validity**: Validated via Python/manual review — YAML structure correct, matrix strategy properly declared.
+
+### WU-8 Details
+
+- `.github/workflows/ci.yml` `test` job converted to matrix strategy with `os: [macos-latest, ubuntu-latest]`
+- `fail-fast: false` so macOS results are not cancelled if Ubuntu fails
+- macOS step: `brew install bats-core gum stow fzf gettext jq sd`
+- Ubuntu step: `apt-get install -y bats stow gettext-base jq fzf` + `cargo install sd || true`
+- Ubuntu gets gum from the PATH shim in stub bin (design decision D9) — no charm apt repo needed
+- Existing lint job (shellcheck, ubuntu-latest) unchanged
+
+### WU-9 Details
+
+**README.md**:
+- Updated description to mention Linux and AI dev tools
+- Added cross-OS support note (macOS + Linux; Windows instructions without crash)
+- Added `wsk ai` to the command table
+- Added "AI dev tools" to the interactive menu listing
+- Added "What it sets up" entries for Claude Code, framework, codegraph, curated skills
+- Added full "AI Dev Layer" section: framework choices (gentle-ai/gsd/superpowers), per-account isolation, curated skills, dependencies table
+- Added Dependencies section with Bootstrap, Base packages, and AI dev layer sub-tables
+- Added Cross-OS notes section
+- Updated Walkthrough step 6 for AI dev layer
+- Added `wsk doctor` expanded health check section
+- Updated Development section to mention Ubuntu CI runner
+
+**Formula/work-swift-kit.rb**:
+- Updated `desc` to mention Linux and AI dev tools
+- Added `depends_on "jq"` and `depends_on "sd"` (both used at runtime)
+- Added `ai` to the dispatch case in the `wsk` wrapper
+- Updated `--help` text to include `wsk ai` with description
+- Updated `setup` description to mention AI dev tools
+- Updated `caveats` to include `wsk ai` entry and AI dev tools runtime note
+- Added comment explaining Node/pnpm/Claude/codegraph are runtime-installed, not Formula deps
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `.github/workflows/ci.yml` | Ubuntu matrix job added; macOS deps updated (jq, sd added) |
+| `README.md` | wsk ai docs, cross-OS note, AI dev layer section, deps table, walkthrough update |
+| `Formula/work-swift-kit.rb` | ai dispatch, jq/sd deps, updated desc/help/caveats |
+| `openspec/changes/quick-dev-setup/tasks.md` | WU-8 and WU-9 tasks marked [x] |
