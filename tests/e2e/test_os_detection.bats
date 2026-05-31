@@ -119,6 +119,9 @@ _make_iso_bin() {
   iso_bin="$(_make_iso_bin brew)"
   bash -c "
     export PATH='$iso_bin'
+    # setup.bash exports a brew() stub function; bash imports exported functions
+    # across PATH, so command -v would find it regardless of iso_bin. Drop them.
+    unset -f brew apt-get dnf pacman winget 2>/dev/null || true
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -133,6 +136,9 @@ _make_iso_bin() {
   iso_bin="$(_make_iso_bin apt-get)"
   bash -c "
     export PATH='$iso_bin'
+    # setup.bash exports a brew() stub function; bash imports exported functions
+    # across PATH, so command -v would find it regardless of iso_bin. Drop them.
+    unset -f brew apt-get dnf pacman winget 2>/dev/null || true
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -147,6 +153,9 @@ _make_iso_bin() {
   iso_bin="$(_make_iso_bin dnf)"
   bash -c "
     export PATH='$iso_bin'
+    # setup.bash exports a brew() stub function; bash imports exported functions
+    # across PATH, so command -v would find it regardless of iso_bin. Drop them.
+    unset -f brew apt-get dnf pacman winget 2>/dev/null || true
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -161,6 +170,9 @@ _make_iso_bin() {
   iso_bin="$(_make_iso_bin pacman)"
   bash -c "
     export PATH='$iso_bin'
+    # setup.bash exports a brew() stub function; bash imports exported functions
+    # across PATH, so command -v would find it regardless of iso_bin. Drop them.
+    unset -f brew apt-get dnf pacman winget 2>/dev/null || true
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/os.sh'
     detect_pkg_mgr
@@ -177,6 +189,7 @@ _make_iso_bin() {
   # Run in a fresh bash process; capture stderr into $stderr via --separate-stderr
   run --separate-stderr bash -c "
     export PATH=\"${iso_bin}\"
+    unset -f brew apt-get dnf pacman winget 2>/dev/null || true
     source \"${WSK_DIR}/lib/log.sh\"
     source \"${WSK_DIR}/lib/os.sh\"
     detect_pkg_mgr
