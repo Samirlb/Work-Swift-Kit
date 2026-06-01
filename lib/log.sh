@@ -22,3 +22,7 @@ log_warn() {
 log_error() {
   printf "${_LOG_RED}[ERROR]${_LOG_RESET} %s\n" "$*" >&2
 }
+
+check_pass() { printf '  \033[38;5;42m✓\033[0m %s\n'  "$*"; }
+check_fail() { printf '  \033[38;5;196m✗\033[0m %s\n' "$*"; }
+check_warn() { printf '  \033[38;5;214m!\033[0m %s\n' "$*"; }

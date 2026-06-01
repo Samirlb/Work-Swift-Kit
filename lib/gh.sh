@@ -45,9 +45,11 @@ setup_gh_accounts() {
           check_pass "$acct_name: SSH key already on GitHub, skipping upload."
         else
           log_info "$acct_name: SSH key not yet on GitHub. Uploading..."
-          gh ssh-key add "$pub_key" --title "WSK-${acct_name}" 2>/dev/null \
-            && check_pass "$acct_name: SSH key uploaded." \
-            || log_warn "$acct_name: could not upload SSH key automatically. Add manually."
+          if gh ssh-key add "$pub_key" --title "WSK-${acct_name}" 2>/dev/null; then
+            check_pass "$acct_name: SSH key uploaded."
+          else
+            log_warn "$acct_name: could not upload SSH key automatically. Add manually."
+          fi
         fi
       fi
       continue
@@ -63,9 +65,11 @@ setup_gh_accounts() {
     if [[ -n "$ssh_key" && -f "$pub_key" ]]; then
       if ! _ssh_key_uploaded "$pub_key"; then
         log_info "$acct_name: uploading SSH key to GitHub..."
-        gh ssh-key add "$pub_key" --title "WSK-${acct_name}" \
-          && check_pass "$acct_name: SSH key uploaded." \
-          || log_warn "$acct_name: could not upload SSH key — add manually."
+        if gh ssh-key add "$pub_key" --title "WSK-${acct_name}"; then
+          check_pass "$acct_name: SSH key uploaded."
+        else
+          log_warn "$acct_name: could not upload SSH key — add manually."
+        fi
       fi
     fi
   done

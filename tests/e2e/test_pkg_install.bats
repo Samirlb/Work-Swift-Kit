@@ -45,10 +45,7 @@ SHIM
   WSK_OS="macos"
   export WSK_PKG_MGR WSK_OS
 
-  # Use a fake package name that won't be found on the real system.
-  # pkg_install exits 127 when the underlying brew shim propagates "not found"
-  # from the gum spin subprocess — declare expected code to silence BW01.
-  run -127 pkg_install wsk-fake-pkg-zz9
+  run pkg_install wsk-fake-pkg-zz9
   assert_stub_called "brew install wsk-fake-pkg-zz9"
 }
 
@@ -125,8 +122,7 @@ exit 0
 SHIM
   chmod +x "$WSK_STUB_BIN/brew"
 
-  # Exits 127 from the gum spin subprocess (same root cause as the brew test above).
-  run -127 pkg_install wsk-fake-cask-zz9 --cask
+  run pkg_install wsk-fake-cask-zz9 --cask
   assert_stub_called "brew install --cask wsk-fake-cask-zz9"
 }
 

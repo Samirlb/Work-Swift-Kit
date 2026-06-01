@@ -2,3 +2,5 @@ stow/
 accounts/
 *.bak.*
 .engram/
+.DS_Store
+.atl/.skill-registry.cache.json
