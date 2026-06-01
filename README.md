@@ -1,6 +1,16 @@
 # Work-Swift-Kit
 
-[![CI](https://github.com/Samirlb/Work-Swift-Kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Samirlb/Work-Swift-Kit/actions/workflows/ci.yml)
+<p align="center">
+  <img src="Work-Swift-Kit.png" alt="Work-Swift-Kit" width="600" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/Samirlb/Work-Swift-Kit/actions/workflows/ci.yml"><img src="https://github.com/Samirlb/Work-Swift-Kit/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/Samirlb/Work-Swift-Kit/releases/latest"><img src="https://img.shields.io/github/v/release/Samirlb/Work-Swift-Kit?label=release" alt="Latest Release" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/bash-3.2%2B-lightgrey" alt="Bash 3.2+" />
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-brightgreen" alt="Platform" />
+</p>
 
 Interactive dev environment setup for single or multi-account workflows. Configures git, SSH, zsh, Claude Code, and AI dev tools per account using GNU Stow.
 
