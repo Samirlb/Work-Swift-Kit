@@ -4,6 +4,11 @@ set -euo pipefail
 render_claude_md() {
   for acct in "${WSK_ACCOUNTS[@]}"; do
     local env_file="${WSK_DIR}/accounts/${acct}.env"
+    local _fw; _fw=$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)
+    if [[ "$_fw" == "gentle-ai" ]]; then
+      rm -f "${WSK_DIR}/stow/.claude-${acct}/CLAUDE.md"
+      continue
+    fi
 
     local display_name projects_dir
     display_name=$(grep '^DISPLAY_NAME=' "$env_file" | cut -d= -f2-)

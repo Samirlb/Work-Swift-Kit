@@ -26,7 +26,7 @@ install_claude_code() {
     return 0
   fi
 
-  ui_spin "Installing Claude Code..." -- bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
+  ui_spin "Installing Claude Code..." bash -c 'curl -fsSL https://claude.ai/install.sh | bash'
 }
 
 # ---------------------------------------------------------------------------
@@ -89,7 +89,7 @@ install_codegraph() {
   fi
 
   if ! command -v codegraph &>/dev/null; then
-    ui_spin "Installing codegraph..." -- npm i -g @colbymchenry/codegraph
+    ui_spin "Installing codegraph..." npm i -g @colbymchenry/codegraph
   else
     check_pass "codegraph already installed"
   fi

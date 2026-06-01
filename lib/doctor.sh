@@ -19,7 +19,7 @@ _check_link() {
 }
 
 # Read-only health check of dependencies, packages, links and accounts.
-run_doctor() {
+_run_doctor_output() {
   ui_section "Check configuration"
   load_accounts
 
@@ -89,7 +89,7 @@ run_doctor() {
   fi
 
   local acct env_file framework
-  for acct in "${WSK_ACCOUNTS[@]}"; do
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     env_file="${WSK_DIR}/accounts/${acct}.env"
     framework=""
     if [[ -f "$env_file" ]]; then
@@ -134,7 +134,7 @@ run_doctor() {
   # ── Skills (per account) ─────────────────────────────────────────────
   ui_subhead "Skills (per account)"
   local skill skills_dir
-  for acct in "${WSK_ACCOUNTS[@]}"; do
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     env_file="${WSK_DIR}/accounts/${acct}.env"
     framework=""
     if [[ -f "$env_file" ]]; then
@@ -166,13 +166,24 @@ run_doctor() {
   if ((${#WSK_ACCOUNTS[@]} == 0)); then
     check_warn "No accounts configured yet — run: wsk setup"
   else
-    local ssh_key
+    local ssh_key acct_fw
     for acct in "${WSK_ACCOUNTS[@]}"; do
       check_pass "account: $acct"
       _check_link "$HOME/.gitconfig-${acct}"
-      _check_link "$HOME/.claude-${acct}/CLAUDE.md"
-      ssh_key=$(grep '^WSK_SSH_KEY=' "${WSK_DIR}/accounts/${acct}.env" | cut -d= -f2-)
-      if [[ -n "$ssh_key" && -f "$HOME/.ssh/${ssh_key}" ]]; then
+      acct_fw=$(grep '^AI_FRAMEWORK=' "${WSK_DIR}/accounts/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
+      if [[ "$acct_fw" == "gentle-ai" ]]; then
+        if [[ -f "$HOME/.claude-${acct}/CLAUDE.md" ]]; then
+          check_pass "CLAUDE.md: managed by gentle-ai"
+        else
+          check_warn "CLAUDE.md: missing — run gentle-ai install"
+        fi
+      else
+        _check_link "$HOME/.claude-${acct}/CLAUDE.md"
+      fi
+      ssh_key=$(grep '^WSK_SSH_KEY=' "${WSK_DIR}/accounts/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
+      if [[ -z "$ssh_key" ]]; then
+        check_warn "ssh key: not configured — run: wsk accounts"
+      elif [[ -f "$HOME/.ssh/${ssh_key}" ]]; then
         check_pass "ssh key: ~/.ssh/${ssh_key}"
       else
         check_fail "ssh key missing: ~/.ssh/${ssh_key}"
@@ -188,4 +199,8 @@ run_doctor() {
   fi
 
   echo
+}
+
+run_doctor() {
+  _run_doctor_output
 }

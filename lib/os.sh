@@ -96,9 +96,9 @@ pkg_install() {
   case "${WSK_PKG_MGR:-}" in
     brew)
       if [[ "$cask" -eq 1 ]]; then
-        ui_spin "Installing $pkg..." -- brew install --cask "$pkg"
+        ui_spin "Installing $pkg..." brew install --cask "$pkg"
       else
-        ui_spin "Installing $pkg..." -- brew install "$pkg"
+        ui_spin "Installing $pkg..." brew install "$pkg"
       fi
       ;;
     apt)

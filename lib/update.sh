@@ -16,7 +16,7 @@ run_update() {
       log_warn "git pull failed — local changes or diverged branch."
     fi
   elif command -v brew &>/dev/null && brew list work-swift-kit &>/dev/null; then
-    ui_spin "Refreshing Homebrew..." -- brew update
+    ui_spin "Refreshing Homebrew..." brew update
     if brew upgrade work-swift-kit; then
       log_success "Kit upgraded via Homebrew."
     else
@@ -28,7 +28,7 @@ run_update() {
 
   # 2) Upgrade the CLI toolbelt.
   if ui_confirm "Upgrade CLI tools (gum, stow, fzf, base packages)?"; then
-    ui_spin "brew update..." -- brew update
+    ui_spin "brew update..." brew update
     brew upgrade gum stow fzf gettext git gh ripgrep bat eza fd sd starship zoxide jq tree 2>/dev/null || true
     log_success "Tools upgraded."
   fi

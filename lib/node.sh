@@ -55,7 +55,7 @@ install_pnpm() {
   case "${WSK_OS:-}" in
     macos)
       # Must use brew explicitly — never the standalone script (fails on Intel darwin-x64).
-      ui_spin "Installing pnpm..." -- brew install pnpm
+      ui_spin "Installing pnpm..." brew install pnpm
       ;;
     linux)
       if command -v corepack &>/dev/null; then

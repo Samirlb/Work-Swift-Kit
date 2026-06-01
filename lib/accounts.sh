@@ -21,17 +21,18 @@ _collect_single_account() {
   local display_label="${2:-$name}"
 
   log_info "Setting up account: $display_label"
+  log_info "This will create shell commands: ${name} and gh-${name}"
 
   local display_name git_name git_email github_user projects_dir ssh_key
 
-  display_name=$(ui_input "Display name for $display_label:" "$display_label")
-  git_name=$(ui_input "Git name for $display_label:")
-  git_email=$(ui_input "Git email for $display_label:")
-  github_user=$(ui_input "GitHub username for $display_label:")
-  projects_dir=$(ui_input "Projects directory for $display_label:" "$HOME/Documents/$display_label")
+  display_name=$(ui_input "Display name for $display_label (label only, not the command):" "$display_label") || return 130
+  git_name=$(ui_input "Git name for $display_label:") || return 130
+  git_email=$(ui_input "Git email for $display_label:") || return 130
+  github_user=$(ui_input "GitHub username for $display_label:") || return 130
+  projects_dir=$(ui_input "Projects directory for $display_label:" "$HOME/Documents/$display_label") || return 130
 
   local ssh_choice
-  ssh_choice=$(ui_choose "SSH key for $display_label:" "Generate new ed25519 key" "Use existing key")
+  ssh_choice=$(ui_choose "SSH key for $display_label:" "Generate new ed25519 key" "Use existing key") || return 130
 
   if [[ "$ssh_choice" == "Generate new ed25519 key" ]]; then
     ssh_key="id_ed25519_${name}"
@@ -43,7 +44,20 @@ _collect_single_account() {
       log_warn "Key $key_path already exists, skipping generation."
     fi
   else
-    ssh_key=$(ui_input "Enter existing SSH key filename (e.g. id_ed25519_work):")
+    local existing_keys=()
+    while IFS= read -r keyfile; do
+      existing_keys+=("$(basename "$keyfile")")
+    # only real private keys — skip .pub, known_hosts, config, authorized_keys, and any .bak files
+    done < <(find "$HOME/.ssh" -maxdepth 1 -type f \
+      ! -name "*.pub" ! -name "*.bak*" \
+      ! -name "known_hosts*" ! -name "config*" ! -name "authorized_keys" \
+      2>/dev/null | sort)
+
+    if [[ ${#existing_keys[@]} -gt 0 ]]; then
+      ssh_key=$(ui_choose "Select existing SSH key:" "${existing_keys[@]}") || return 130
+    else
+      ssh_key=$(ui_input "Enter existing SSH key filename (e.g. id_ed25519_work):") || return 130
+    fi
   fi
 
   mkdir -p "${WSK_DIR}/accounts"
@@ -63,25 +77,42 @@ EOF
 collect_accounts() {
   log_info "Collecting account information..."
 
-  _collect_single_account "work" "Work"
-  _collect_single_account "personal" "Personal"
+  local mode
+  mode=$(ui_choose "How many accounts do you want to configure?" \
+    "Single account" \
+    "Work + Personal" \
+    "Work + Personal + more") || { log_warn "Account setup cancelled."; return 130; }
 
-  if ui_confirm "Add another account?"; then
-    while true; do
-      local extra_name
-      extra_name=$(ui_input "Account name (lowercase, no spaces):")
-      _collect_single_account "$extra_name"
-      if ! ui_confirm "Add another account?"; then
-        break
-      fi
-    done
-  fi
+  WSK_ACCOUNTS=()
 
-  for env_file in "${WSK_DIR}/accounts/"*.env; do
-    local acct_name
-    acct_name=$(basename "$env_file" .env)
-    WSK_ACCOUNTS+=("$acct_name")
-  done
+  case "$mode" in
+    "Work + Personal")
+      _collect_single_account "work" "Work" || { log_warn "Account setup cancelled."; return 130; }
+      WSK_ACCOUNTS+=("work")
+      _collect_single_account "personal" "Personal" || { log_warn "Account setup cancelled."; return 130; }
+      WSK_ACCOUNTS+=("personal")
+      ;;
+    "Single account")
+      local acct_name
+      acct_name=$(ui_choose "Account type:" "work" "personal") || { log_warn "Account setup cancelled."; return 130; }
+      local _label; _label="$(tr '[:lower:]' '[:upper:]' <<< "${acct_name:0:1}")${acct_name:1}"
+      _collect_single_account "$acct_name" "$_label" || { log_warn "Account setup cancelled."; return 130; }
+      WSK_ACCOUNTS+=("$acct_name")
+      ;;
+    "Work + Personal + more")
+      _collect_single_account "work" "Work" || { log_warn "Account setup cancelled."; return 130; }
+      WSK_ACCOUNTS+=("work")
+      _collect_single_account "personal" "Personal" || { log_warn "Account setup cancelled."; return 130; }
+      WSK_ACCOUNTS+=("personal")
+      while true; do
+        local extra_name
+        extra_name=$(ui_input "Account name (lowercase, no spaces):") || break
+        _collect_single_account "$extra_name" || break
+        WSK_ACCOUNTS+=("$extra_name")
+        ui_confirm "Add another account?" || break
+      done
+      ;;
+  esac
 
   log_success "Accounts collected: ${WSK_ACCOUNTS[*]}"
 }

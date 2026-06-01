@@ -106,12 +106,26 @@ install_ai_framework() {
 
   case "$choice" in
     gentle-ai)
-      # Tap + install (idempotent via command -v gentle-ai)
       if ! command -v gentle-ai &>/dev/null; then
         brew tap Gentleman-Programming/homebrew-tap
         brew install gentle-ai
       fi
-      CLAUDE_CONFIG_DIR="$cfg_dir" gentle-ai install --agent claude-code
+      # gentle-ai rejects ~/.claude when it is a symlink (checks parent dir too).
+      # Temporarily rename cfg_dir → ~/.claude so it's a real directory, run, restore.
+      local _dot_claude="$HOME/.claude"
+      local _was_link=0 _link_target=""
+      if [[ -L "$_dot_claude" ]]; then
+        _was_link=1
+        _link_target="$(readlink "$_dot_claude")"
+        rm "$_dot_claude"
+        mv "$cfg_dir" "$_dot_claude"
+      fi
+      rm -f "$_dot_claude/CLAUDE.md"
+      gentle-ai install --agent claude-code || true
+      if (( _was_link )); then
+        mv "$_dot_claude" "$cfg_dir"
+        ln -sfn "$_link_target" "$_dot_claude"
+      fi
       ;;
 
     gsd)
@@ -149,7 +163,16 @@ install_ai_framework() {
 run_ai_for_all_accounts() {
   local acct framework
 
-  for acct in "${WSK_ACCOUNTS[@]}"; do
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    load_accounts
+  fi
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    log_warn "No accounts configured — run accounts setup first."
+    return 0
+  fi
+
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     install_ai_framework "$acct"
 
     # Read persisted framework choice (set by install_ai_framework above).

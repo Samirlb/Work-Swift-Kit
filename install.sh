@@ -27,7 +27,7 @@ source "${WSK_DIR}/lib/tui.sh"
 
 # ── Actions ───────────────────────────────────────────────────────────
 run_full_setup() {
-  collect_accounts
+  collect_accounts || load_accounts
   install_packages
   install_terminals
   detect_os; detect_pkg_mgr || true
@@ -42,7 +42,7 @@ run_full_setup() {
 }
 
 run_accounts() {
-  collect_accounts
+  collect_accounts || load_accounts
   render_all
   link_dotfiles
   log_info "Restart your terminal or run: source ~/.zshrc"
@@ -82,6 +82,8 @@ if [[ "$COMMAND" != "menu" ]]; then
 fi
 
 # ── Interactive menu ──────────────────────────────────────────────────
+trap 'printf "\033[?25h\033[?1049l" >/dev/tty 2>/dev/null; stty sane 2>/dev/null; echo; exit 130' INT TERM
+
 while true; do
   if [[ "${WSK_UI:-gum}" == "tui" ]]; then
     ACTION=$(tui_menu \
@@ -106,16 +108,13 @@ while true; do
   fi
 
   case "$ACTION" in
-    *"Full setup"*)          run_full_setup ;;
-    *"Accounts only"*)       run_accounts ;;
-    *"Terminals only"*)      install_terminals ;;
-    *"AI dev tools"*)        run_ai ;;
-    *"Check configuration"*) run_doctor ;;
-    *"Update"*)              run_update ;;
-    *"Re-link configs"*)     run_relink ;;
+    *"Full setup"*)          tui_wrap_action run_full_setup ;;
+    *"Accounts only"*)       tui_wrap_action run_accounts ;;
+    *"Terminals only"*)      tui_wrap_action install_terminals ;;
+    *"AI dev tools"*)        tui_wrap_action run_ai ;;
+    *"Check configuration"*) tui_wrap_action --paged run_doctor ;;
+    *"Update"*)              tui_wrap_action run_update ;;
+    *"Re-link configs"*)     tui_wrap_action --paged run_relink ;;
     *"Quit"* | "")           log_info "See you next time."; exit 0 ;;
   esac
-
-  echo
-  ui_confirm "Back to the menu?" || { log_success "Work-Swift-Kit done!"; exit 0; }
 done

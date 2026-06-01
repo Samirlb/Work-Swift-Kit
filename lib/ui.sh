@@ -20,7 +20,10 @@ WSK_VERSION="${WSK_VERSION:-0.2.0}"
 # ── Primitives ────────────────────────────────────────────────────────
 ui_input() {
   local prompt="$1" placeholder="${2:-}"
-  gum input --prompt "$prompt " --placeholder "$placeholder"
+  local _result _rc
+  _result=$(gum input --prompt "$prompt " --placeholder "$placeholder"); _rc=$?
+  (( _rc != 0 )) && return 130
+  printf '%s' "$_result"
 }
 
 ui_confirm() {
@@ -29,7 +32,10 @@ ui_confirm() {
 
 ui_choose() {
   local prompt="$1"; shift
-  gum choose --header "$prompt" "$@"
+  local _result _rc
+  _result=$(gum choose --header "$prompt" "$@"); _rc=$?
+  (( _rc != 0 )) && return 130
+  printf '%s' "$_result"
 }
 
 ui_multiselect() {
@@ -131,7 +137,4 @@ ui_subhead() {
   gum style --foreground "$WSK_ACCENT" --bold "$1"
 }
 
-# ── Status lines (doctor) ─────────────────────────────────────────────
-check_pass() { printf '  \033[38;5;42m✓\033[0m %s\n'  "$*"; }
-check_fail() { printf '  \033[38;5;196m✗\033[0m %s\n' "$*"; }
-check_warn() { printf '  \033[38;5;214m!\033[0m %s\n' "$*"; }
+# ── Status lines (doctor) — defined in log.sh (loaded before bootstrap) ──
