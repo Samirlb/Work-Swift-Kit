@@ -27,7 +27,7 @@ _check_zshrc_block() {
   elif grep -qF '# >>> work-swift-kit >>>' "$rc" 2>/dev/null; then
     check_pass "managed block: ~/.zshrc"
   else
-    check_warn "~/.zshrc exists but has no Work-Swift-Kit block — run: wsk relink"
+    check_warn "$HOME/.zshrc exists but has no Work-Swift-Kit block — run: wsk relink"
   fi
 }
 

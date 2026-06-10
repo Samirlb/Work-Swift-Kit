@@ -37,7 +37,7 @@ inject_zshrc_block() {
       # Symlink target missing or empty — recover from the most recent backup
       # that has real content so the user's original config is not lost.
       local recovered=""
-      for bak in $(ls -t "${rc}.bak."* 2>/dev/null); do
+      for bak in "${rc}.bak."*; do
         if [[ -s "$bak" ]]; then
           cp "$bak" "$rc"
           recovered="$bak"
