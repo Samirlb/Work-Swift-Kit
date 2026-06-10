@@ -7,7 +7,7 @@ run_update() {
   ui_section "Update"
   load_accounts
 
-  # 1) Update Work-Swift-Kit itself (git checkout or Homebrew formula).
+  # 1) Update Work-Swift-Kit itself (git pull for ~/.wsk installs, brew for Homebrew).
   if [[ -d "${WSK_DIR}/.git" ]]; then
     log_info "Pulling latest Work-Swift-Kit..."
     if git -C "$WSK_DIR" pull --ff-only; then
@@ -15,7 +15,7 @@ run_update() {
     else
       log_warn "git pull failed — local changes or diverged branch."
     fi
-  elif command -v brew &>/dev/null && brew list work-swift-kit &>/dev/null; then
+  elif command -v brew &>/dev/null && brew list work-swift-kit &>/dev/null 2>/dev/null; then
     ui_spin "Refreshing Homebrew..." brew update
     if brew upgrade work-swift-kit; then
       log_success "Kit upgraded via Homebrew."
@@ -25,6 +25,9 @@ run_update() {
   else
     log_warn "Can't auto-update: not a git checkout and not installed via Homebrew."
   fi
+
+  # Refresh /usr/local/bin/wsk wrapper to point at current WSK_DIR.
+  _wsk_write_wrapper 2>/dev/null || true
 
   # 2) Upgrade the CLI toolbelt.
   if ui_confirm "Upgrade CLI tools (gum, stow, fzf, base packages)?"; then

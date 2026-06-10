@@ -12,17 +12,40 @@ fi
 WSK_DIR="${WSK_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}"
 export WSK_DIR
 
-# Diagnóstico temporal — remover después de confirmar que curl | bash funciona
-if [[ -t 0 ]]; then
-  echo "[DEBUG] stdin is a terminal ✓"
-else
-  echo "[DEBUG] stdin is NOT a terminal — interactive prompts may fail" >&2
-fi
-
 source "${WSK_DIR}/lib/log.sh"
 source "${WSK_DIR}/lib/bootstrap.sh"
 
 bootstrap
+
+# Persist WSK to ~/.wsk and write/refresh the wsk wrapper in /usr/local/bin.
+# Called immediately when running from a temp dir (curl install) and from run_update.
+_wsk_write_wrapper() {
+  mkdir -p /usr/local/bin
+  cat > /usr/local/bin/wsk <<'WRAPPER'
+#!/usr/bin/env bash
+WSK_DIR="$HOME/.wsk"
+export WSK_DIR
+exec bash "$WSK_DIR/install.sh" "$@"
+WRAPPER
+  chmod +x /usr/local/bin/wsk
+}
+
+_wsk_self_install() {
+  local dest="$HOME/.wsk"
+  if [[ "$WSK_DIR" != "$dest" ]]; then
+    rm -rf "$dest"
+    cp -r "$WSK_DIR" "$dest"
+    WSK_DIR="$dest"
+    export WSK_DIR
+  fi
+  _wsk_write_wrapper
+  log_success "wsk installed/updated → /usr/local/bin/wsk (WSK_DIR=$HOME/.wsk)"
+}
+
+# Auto-install when running from a temp dir (curl | bash flow)
+if [[ "$WSK_DIR" == /tmp/* ]] || [[ "$WSK_DIR" == /var/folders/* ]]; then
+  _wsk_self_install
+fi
 
 source "${WSK_DIR}/lib/ui.sh"
 source "${WSK_DIR}/lib/accounts.sh"
