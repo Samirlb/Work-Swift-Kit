@@ -12,6 +12,13 @@ fi
 WSK_DIR="${WSK_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}"
 export WSK_DIR
 
+# Diagnóstico temporal — remover después de confirmar que curl | bash funciona
+if [[ -t 0 ]]; then
+  echo "[DEBUG] stdin is a terminal ✓"
+else
+  echo "[DEBUG] stdin is NOT a terminal — interactive prompts may fail" >&2
+fi
+
 source "${WSK_DIR}/lib/log.sh"
 source "${WSK_DIR}/lib/bootstrap.sh"
 
