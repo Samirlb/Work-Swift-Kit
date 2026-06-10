@@ -6,7 +6,7 @@ set -euo pipefail
 if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ "${BASH_SOURCE[0]}" == "bash" ]]; then
   _TMP=$(mktemp -d)
   git clone --depth 1 https://github.com/Samirlb/Work-Swift-Kit "$_TMP/wsk"
-  exec bash "$_TMP/wsk/install.sh"
+  exec bash "$_TMP/wsk/install.sh" </dev/tty
 fi
 
 WSK_DIR="${WSK_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}"
