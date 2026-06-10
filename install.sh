@@ -64,6 +64,7 @@ source "${WSK_DIR}/lib/tui.sh"
 
 # ── Actions ───────────────────────────────────────────────────────────
 run_full_setup() {
+  ui_confirm "Run full setup? Installs packages, tools, and configures all accounts." || return 0
   collect_accounts || load_accounts
   install_packages
   install_terminals
