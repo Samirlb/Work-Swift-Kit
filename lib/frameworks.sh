@@ -240,8 +240,28 @@ _gentle_ai_scoped() {
   fi
 
   # Put this account's real dir at ~/.claude, run gentle-ai, move it back.
+  # Hide `gemini` from PATH: the caveman installer detects it and runs
+  # `gemini extensions install` which hangs on its interactive trust prompt.
+  local _gemini_path
+  _gemini_path="$(command -v gemini 2>/dev/null || true)"
+  local _tmp_mask=""
+  if [[ -n "$_gemini_path" ]]; then
+    _tmp_mask="$(mktemp -d)"
+    # Stub that exits 0 immediately — caveman's `command -v gemini` still succeeds
+    # but the extension install becomes a no-op instead of blocking.
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$_tmp_mask/gemini"
+    chmod +x "$_tmp_mask/gemini"
+    export PATH="$_tmp_mask:$PATH"
+  fi
+
   mv "$cfg_dir" "$dot"
   gentle-ai "$@" || true
+
+  if [[ -n "$_tmp_mask" ]]; then
+    rm -rf "$_tmp_mask"
+    # Restore PATH by removing the prepended dir
+    export PATH="${PATH#"$_tmp_mask:"}"
+  fi
   # Remove any nested .claude/ gentle-ai may have created inside the config dir.
   rm -rf "$dot/.claude"
   mv "$dot" "$cfg_dir"
