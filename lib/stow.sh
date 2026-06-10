@@ -7,7 +7,8 @@ backup_if_real() {
     # Symlink pointing to a different WSK stow dir — remove so stow can recreate it.
     local link_dest; link_dest="$(readlink "$target" 2>/dev/null || true)"
     local expected_prefix="${WSK_DIR}/stow/"
-    local resolved_dest; resolved_dest="$(cd "$(dirname "$target")" && realpath "$link_dest" 2>/dev/null || true)"
+    local resolved_dest
+    resolved_dest="$(cd "$(dirname "$target")" && realpath "$link_dest" 2>/dev/null)" || resolved_dest=""
     if [[ "$resolved_dest" != "${expected_prefix}"* ]]; then
       rm "$target"
       log_warn "Removed stale stow symlink: $target (was → $link_dest)"

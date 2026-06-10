@@ -128,13 +128,19 @@ install_ai_framework() {
         brew tap Gentleman-Programming/homebrew-tap
         brew install gentle-ai
       fi
-      # gentle-ai owns CLAUDE.md — drop any stale copy so install regenerates it.
-      # (cfg_dir is swapped to ~/.claude by _gentle_ai_scoped, so removing it here
-      # is equivalent to removing ~/.claude/CLAUDE.md after the swap.)
-      rm -f "$cfg_dir/CLAUDE.md"
       # gentle-ai only operates on ~/.claude and ignores CLAUDE_CONFIG_DIR, so
       # scope each step to this account's dir via the swap helper.
-      _gentle_ai_scoped "$cfg_dir" install --agent claude-code
+      #
+      # `install` registers marketplace plugin entries in Claude Code's internal
+      # registry. Running it more than once stacks duplicate entries (visible as
+      # duplicate skills in /skills). Only run install when this account has not
+      # been initialized yet (settings.json is the canonical marker gentle-ai
+      # creates during install). Subsequent runs use sync-only, which is idempotent.
+      if [[ ! -f "$cfg_dir/settings.json" ]]; then
+        # gentle-ai owns CLAUDE.md — drop any stale copy so install regenerates it.
+        rm -f "$cfg_dir/CLAUDE.md"
+        _gentle_ai_scoped "$cfg_dir" install --agent claude-code
+      fi
       # Sync managed configs + skills to the current gentle-ai version.
       _gentle_ai_scoped "$cfg_dir" sync
       # gentle-ai generates `!`basename "$(pwd)"`` in sdd-new.md which Claude Code

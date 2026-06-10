@@ -15,7 +15,7 @@ run_update() {
     else
       log_warn "git pull failed — local changes or diverged branch."
     fi
-  elif command -v brew &>/dev/null && brew list work-swift-kit &>/dev/null 2>/dev/null; then
+  elif command -v brew &>/dev/null && brew list work-swift-kit &>/dev/null; then
     ui_spin "Refreshing Homebrew..." brew update
     if brew upgrade work-swift-kit; then
       log_success "Kit upgraded via Homebrew."
