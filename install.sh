@@ -73,6 +73,27 @@ run_sync() {
   sync_gentle_ai_accounts
 }
 
+run_help() {
+  cat <<EOF
+Work-Swift-Kit ${WSK_VERSION}
+
+USAGE
+  wsk [command]
+
+COMMANDS
+  (no args)        Open interactive menu
+  setup            Full setup: accounts, dotfiles, tools, and AI layer
+  accounts         Re-collect accounts and re-link dotfiles
+  ai               Install or re-configure AI frameworks for all accounts
+  sync             Run gentle-ai sync for every gentle-ai account
+  relink           Re-render and re-link dotfiles without re-collecting accounts
+  doctor           Scrollable health check of tools, links, accounts, and AI setup
+  update           Update the kit, upgrade CLI tools, sync gentle-ai, refresh dotfiles
+  version          Print the current wsk version
+  help             Show this help message
+EOF
+}
+
 # ── Direct command dispatch (wsk <command>) ───────────────────────────
 dispatch() {
   case "$1" in
@@ -84,6 +105,8 @@ dispatch() {
     update)        run_update ;;
     ai)            run_ai ;;
     sync)          run_sync ;;
+    version|-v|--version) echo "wsk ${WSK_VERSION}" ;;
+    help|-h|--help)       run_help ;;
     *)             return 1 ;;
   esac
 }

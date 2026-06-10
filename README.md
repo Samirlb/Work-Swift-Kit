@@ -50,6 +50,8 @@ Or call any action directly:
 | `wsk doctor`    | Scrollable health check of tools, links, accounts, and AI setup                    |
 | `wsk update`    | Update the kit, upgrade CLI tools, sync gentle-ai, optionally refresh dotfiles       |
 | `wsk relink`    | Re-render and re-link dotfiles without re-collecting accounts                       |
+| `wsk version`   | Print the current wsk version                                                       |
+| `wsk help`      | Show all available commands with descriptions                                       |
 
 ### The menu
 
