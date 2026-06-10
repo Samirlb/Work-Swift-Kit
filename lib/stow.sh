@@ -3,7 +3,16 @@ set -euo pipefail
 
 backup_if_real() {
   local target="$1"
-  if [[ -e "$target" && ! -L "$target" ]]; then
+  if [[ -L "$target" ]]; then
+    # Symlink pointing to a different WSK stow dir — remove so stow can recreate it.
+    local link_dest; link_dest="$(readlink "$target" 2>/dev/null || true)"
+    local expected_prefix="${WSK_DIR}/stow/"
+    local resolved_dest; resolved_dest="$(cd "$(dirname "$target")" && realpath "$link_dest" 2>/dev/null || true)"
+    if [[ "$resolved_dest" != "${expected_prefix}"* ]]; then
+      rm "$target"
+      log_warn "Removed stale stow symlink: $target (was → $link_dest)"
+    fi
+  elif [[ -e "$target" ]]; then
     local backup
     backup="${target}.bak.$(date +%Y%m%d-%H%M%S)"
     mv "$target" "$backup"
