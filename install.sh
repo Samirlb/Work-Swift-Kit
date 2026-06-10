@@ -2,6 +2,13 @@
 # shellcheck disable=SC1091
 set -euo pipefail
 
+# When piped via curl | bash, BASH_SOURCE[0] is unset — clone the repo first.
+if [[ -z "${BASH_SOURCE[0]:-}" ]] || [[ "${BASH_SOURCE[0]}" == "bash" ]]; then
+  _TMP=$(mktemp -d)
+  git clone --depth 1 https://github.com/Samirlb/Work-Swift-Kit "$_TMP/wsk"
+  exec bash "$_TMP/wsk/install.sh"
+fi
+
 WSK_DIR="${WSK_DIR:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"}"
 export WSK_DIR
 
