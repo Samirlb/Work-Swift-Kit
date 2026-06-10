@@ -15,14 +15,15 @@ WSK_WARN=214     # amber   — updates-available line
 WSK_FAINT=240    # faint   — hints
 
 # Single source of truth for the version shown in the header.
-WSK_VERSION="${WSK_VERSION:-0.2.0}"
+WSK_VERSION="${WSK_VERSION:-0.3.0}"
 
 # ── Primitives ────────────────────────────────────────────────────────
 ui_input() {
-  local prompt="$1" placeholder="${2:-}"
+  local prompt="$1" default="${2:-}"
   local _result _rc
-  _result=$(gum input --prompt "$prompt " --placeholder "$placeholder"); _rc=$?
+  _result=$(gum input --prompt "$prompt " --placeholder "$default"); _rc=$?
   (( _rc != 0 )) && return 130
+  [[ -z "$_result" && -n "$default" ]] && _result="$default"
   printf '%s' "$_result"
 }
 
@@ -45,7 +46,7 @@ ui_multiselect() {
 
 ui_spin() {
   local title="$1"; shift
-  gum spin --title "$title" -- "$@"
+  gum spin --title "$title" -- "$@" </dev/null
 }
 
 # ── Brand block: logo + box-drawing wordmark, side by side ────────────

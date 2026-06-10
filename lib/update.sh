@@ -33,6 +33,15 @@ run_update() {
     log_success "Tools upgraded."
   fi
 
+  # 2b) Upgrade gentle-ai tooling and re-sync managed configs/skills per account.
+  if command -v gentle-ai &>/dev/null; then
+    if ui_confirm "Upgrade & sync gentle-ai (configs + skills) for all accounts?"; then
+      ui_spin "gentle-ai upgrade..." gentle-ai upgrade || true
+      sync_gentle_ai_accounts
+      log_success "gentle-ai synced."
+    fi
+  fi
+
   # 3) Re-render templates so config changes land on disk.
   if ui_confirm "Re-render and re-link dotfiles with the latest templates?"; then
     render_all

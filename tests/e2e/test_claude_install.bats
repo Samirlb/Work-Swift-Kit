@@ -78,6 +78,27 @@ SHIM
   assert_stub_not_called "https://claude.ai/install.sh"
 }
 
+@test "install_claude_code: claude wrapper present but --version fails (broken native binary) — reinstalls via curl" {
+  local log_file="$WSK_TEST_HOME/c_broken.log"
+  : > "$log_file"
+
+  # claude wrapper exists in PATH but exits non-zero — simulates missing native binary
+  claude_present
+
+  cat > "$WSK_STUB_BIN/sh" <<'SHIM'
+#!/usr/bin/env bash
+echo "sh $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+SHIM
+  chmod +x "$WSK_STUB_BIN/sh"
+
+  _run_iso_claude "$log_file" \
+    "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_CLAUDE_EXIT=1" \
+    "install_claude_code"
+
+  grep -q "https://claude.ai/install.sh" "$log_file"
+}
+
 @test "install_claude_code: WSK_OS=windows — PowerShell instruction printed, curl NOT called" {
   local log_file="$WSK_TEST_HOME/c3.log"
   : > "$log_file"

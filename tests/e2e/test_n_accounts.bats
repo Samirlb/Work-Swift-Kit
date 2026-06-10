@@ -61,6 +61,20 @@ teardown() {
   # _wsk_switch_profile helper (which sets CLAUDE_CONFIG_DIR). Count the calls
   # (trailing space excludes the single `_wsk_switch_profile()` definition).
   local count
-  count=$(grep -c '_wsk_switch_profile ' "${WSK_DIR}/stow/.zshrc")
+  count=$(grep -c '_wsk_switch_profile ' "${WSK_DIR}/.rendered/wsk-zshrc")
   [ "$count" -eq 3 ]
+}
+
+@test ".zshrc has one claude-{acct} shorthand per account with correct CLAUDE_CONFIG_DIR" {
+  source "${WSK_DIR}/lib/render.sh"
+  render_all
+  local zshrc="${WSK_DIR}/.rendered/wsk-zshrc"
+  # One function definition per account
+  local count
+  count=$(grep -c '^function claude-' "$zshrc")
+  [ "$count" -eq 3 ]
+  # Each sets CLAUDE_CONFIG_DIR to the per-account config dir
+  grep -q 'CLAUDE_CONFIG_DIR=.*\.claude-work' "$zshrc"
+  grep -q 'CLAUDE_CONFIG_DIR=.*\.claude-personal' "$zshrc"
+  grep -q 'CLAUDE_CONFIG_DIR=.*\.claude-client' "$zshrc"
 }

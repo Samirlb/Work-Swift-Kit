@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
-WSK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+WSK_REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export WSK_REPO_DIR
+
+# WSK_DIR starts at the repo for sourcing, but init_test_home re-points it to
+# a sandbox copy so tests never write to (or delete from) the real repo's
+# accounts/ and stow/ dirs — on a dev machine those hold real user data.
+WSK_DIR="$WSK_REPO_DIR"
 export WSK_DIR
 
 # ---------------------------------------------------------------------------
@@ -29,6 +35,16 @@ init_test_home() {
   WSK_STUB_LOG="$WSK_TEST_HOME/stub-calls.log"
   export WSK_STUB_LOG
   : > "$WSK_STUB_LOG"
+
+  # Sandbox copy of the kit: seed_account/cleanup_test_artifacts (and any code
+  # under test that writes into $WSK_DIR) must operate on this copy, never on
+  # the real repo.
+  WSK_DIR="$WSK_TEST_HOME/wsk"
+  export WSK_DIR
+  mkdir -p "$WSK_DIR"
+  cp -R "$WSK_REPO_DIR/lib" "$WSK_REPO_DIR/templates" "$WSK_DIR/"
+  [[ -d "$WSK_REPO_DIR/tools" ]] && cp -R "$WSK_REPO_DIR/tools" "$WSK_DIR/"
+  cp "$WSK_REPO_DIR/install.sh" "$WSK_DIR/"
 
   # Install all default shims
   _install_all_default_shims
@@ -384,7 +400,10 @@ EOF
 }
 
 cleanup_test_artifacts() {
-  rm -rf "${WSK_DIR}/stow" "${WSK_DIR}/accounts"
+  # Hard guard: only ever delete inside the sandbox copy, never the real repo.
+  if [[ -n "${WSK_TEST_HOME:-}" && "$WSK_DIR" == "$WSK_TEST_HOME"/* ]]; then
+    rm -rf "${WSK_DIR}/stow" "${WSK_DIR}/accounts"
+  fi
 }
 
 cleanup_test_home() {

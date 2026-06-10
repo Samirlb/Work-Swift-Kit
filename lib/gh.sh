@@ -29,8 +29,13 @@ setup_gh_accounts() {
     ordered_accounts+=("$_acct")
   done
 
+  if [[ ${#ordered_accounts[@]} -eq 0 ]]; then
+    log_warn "No accounts configured — skipping gh setup."
+    return 0
+  fi
+
   local acct_name github_user ssh_key env_file
-  for acct_name in "${ordered_accounts[@]}"; do
+  for acct_name in "${ordered_accounts[@]+"${ordered_accounts[@]}"}"; do
     env_file="${WSK_DIR}/accounts/${acct_name}.env"
     github_user=$(grep '^GIT_GITHUB_USER=' "$env_file" | cut -d= -f2-)
     ssh_key=$(grep '^WSK_SSH_KEY=' "$env_file" 2>/dev/null | cut -d= -f2- || true)

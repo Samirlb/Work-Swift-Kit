@@ -34,6 +34,12 @@ run_full_setup() {
   install_node
   install_pnpm
   install_claude_code
+  if ui_confirm "Install RTK (Bash output compression for Claude)?"; then
+    install_rtk
+  fi
+  if ui_confirm "Install Caveman (response token compression for Claude)?"; then
+    install_caveman
+  fi
   run_ai_for_all_accounts
   setup_gh_accounts
   render_all
@@ -55,6 +61,11 @@ run_relink() {
   log_success "Dotfiles re-linked."
 }
 
+run_sync() {
+  load_accounts
+  sync_gentle_ai_accounts
+}
+
 # ── Direct command dispatch (wsk <command>) ───────────────────────────
 dispatch() {
   case "$1" in
@@ -65,6 +76,7 @@ dispatch() {
     doctor|check)  run_doctor ;;
     update)        run_update ;;
     ai)            run_ai ;;
+    sync)          run_sync ;;
     *)             return 1 ;;
   esac
 }
@@ -77,7 +89,7 @@ if [[ "$COMMAND" != "menu" ]]; then
     log_success "Done."
     exit 0
   fi
-  echo "Usage: wsk [setup|accounts|terminals|relink|doctor|update|ai]" >&2
+  echo "Usage: wsk [setup|accounts|terminals|relink|doctor|update|ai|sync]" >&2
   exit 1
 fi
 
@@ -91,6 +103,7 @@ while true; do
       "accounts::Accounts only::Configure accounts and authentication" \
       "terminals::Terminals only::Setup shells, aliases and terminal tools" \
       "ai::AI dev tools::Install Claude Code, framework, codegraph and skills per account" \
+      "sync::Sync AI configs::Run gentle-ai sync (configs + skills) for all accounts" \
       "check::Check configuration::Verify installed tools, links and accounts" \
       "update::Update::Pull latest kit and upgrade packages" \
       "relink::Re-link configs::Re-symlink existing configuration files" \
@@ -101,6 +114,7 @@ while true; do
       "Accounts only::Configure accounts and authentication" \
       "Terminals only::Setup shells, aliases and terminal tools" \
       "AI dev tools::Install Claude Code, framework, codegraph and skills per account" \
+      "Sync AI configs::Run gentle-ai sync (configs + skills) for all accounts" \
       "Check configuration::Verify installed tools, links and accounts" \
       "Update::Pull latest kit and upgrade packages" \
       "Re-link configs::Re-symlink existing configuration files" \
@@ -112,6 +126,7 @@ while true; do
     *"Accounts only"*)       tui_wrap_action run_accounts ;;
     *"Terminals only"*)      tui_wrap_action install_terminals ;;
     *"AI dev tools"*)        tui_wrap_action run_ai ;;
+    *"Sync AI configs"*)     tui_wrap_action run_sync ;;
     *"Check configuration"*) tui_wrap_action --paged run_doctor ;;
     *"Update"*)              tui_wrap_action run_update ;;
     *"Re-link configs"*)     tui_wrap_action --paged run_relink ;;

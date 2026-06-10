@@ -46,8 +46,9 @@ Or call any action directly:
 | `wsk accounts`  | Configure accounts and authentication only                                          |
 | `wsk terminals` | Install terminals/editors only                                                      |
 | `wsk ai`        | Install Claude Code, AI framework, codegraph, and curated skills per account        |
+| `wsk sync`      | Run `gentle-ai sync` (configs + skills) for every gentle-ai account                  |
 | `wsk doctor`    | Scrollable health check of tools, links, accounts, and AI setup                    |
-| `wsk update`    | Update the kit, upgrade CLI tools, optionally refresh dotfiles                      |
+| `wsk update`    | Update the kit, upgrade CLI tools, sync gentle-ai, optionally refresh dotfiles       |
 | `wsk relink`    | Re-render and re-link dotfiles without re-collecting accounts                       |
 
 ### The menu
@@ -82,7 +83,7 @@ Only the accounts configured in the current session are used for AI setup and Gi
 - `.gitconfig` with per-account `includeIf` blocks
 - `.gitconfig-{account}` per account (name, email, GitHub user, SSH command)
 - `.ssh/config` with `Host github-{account}` entries per account
-- `.zshrc` with PATH, pnpm, and `work()` / `personal()` switcher functions
+- A **Work-Swift-Kit block** spliced into your existing `~/.zshrc` (between `# >>> work-swift-kit >>>` markers) with PATH, pnpm, the `claude` account picker, and `work()` / `personal()` switcher functions — your own `~/.zshrc` content is never replaced
 - `.gitignore_global` covering macOS, Node, Flutter, Android, iOS, Expo, secrets, editors, Claude
 - Claude Code installed globally via the official installer
 - Per-account AI framework: choose from `gentle-ai`, `gsd`, or `superpowers`
@@ -94,15 +95,20 @@ Only the accounts configured in the current session are used for AI setup and Gi
 After setup, use these shell functions to switch between accounts:
 
 ```bash
+claude            # asks which account to open (fzf), then launches Claude with its config
 work              # fzf project picker → opens Claude in selected project
 personal          # fzf project picker → opens Claude in selected project
 work <project>    # jump directly to a project
 work -p           # list available projects without opening Claude
 gh-work <cmd>     # run any gh command as the work account
 gh-personal <cmd> # run any gh command as the personal account
+claude-work       # open Claude with work config, from wherever you are (no cd, no gh switch)
+claude-personal   # open Claude with personal config, from wherever you are (no cd, no gh switch)
 ```
 
-Each switcher swaps the active `gh` user, sets `CLAUDE_CONFIG_DIR` to `~/.claude-{account}`, and opens Claude in the selected project directory.
+The bare `claude` command now prompts for which account to open: with a single account it launches that one directly; with two or more it shows an fzf picker; if `CLAUDE_CONFIG_DIR` is already set (e.g. inside `work`/`personal`/`claude-{account}`) it honors that and skips the prompt.
+
+Each switcher swaps the active `gh` user, sets `CLAUDE_CONFIG_DIR` to `~/.claude-{account}`, and opens Claude in the selected project directory. Use `claude-{account}` when you want Claude's account config without switching directories or `gh` context.
 
 ## AI Dev Layer (`wsk ai`)
 
@@ -122,11 +128,20 @@ Each switcher swaps the active `gh` user, sets `CLAUDE_CONFIG_DIR` to `~/.claude
 
 | Framework | Description |
 |-----------|-------------|
-| `gentle-ai` | Installed via Homebrew tap `Gentleman-Programming/homebrew-tap`. CLAUDE.md is owned by gentle-ai and excluded from stow. WSK temporarily renames `~/.claude-{account}` to `~/.claude` during install to satisfy gentle-ai's symlink checks, then restores it. |
+| `gentle-ai` | Installed via Homebrew tap `Gentleman-Programming/homebrew-tap`. CLAUDE.md is owned by gentle-ai and excluded from stow. WSK temporarily renames `~/.claude-{account}` to `~/.claude` during install to satisfy gentle-ai's symlink checks, then restores it. After install (and on `wsk sync` / `wsk update`) WSK runs `gentle-ai sync` per account to pull the latest managed configs and skills. |
 | `gsd` | Installed via `npx get-shit-done-cc --global`; falls back to git clone if npx fails. |
 | `superpowers` | Cloned into `~/.claude-{account}/superpowers`; activate with `/plugin install` inside Claude. |
 
 Re-running `wsk ai` is idempotent — existing framework choices are preserved.
+
+### Keeping gentle-ai in sync
+
+`gentle-ai` ships frequent updates to its agent configs and skills. To keep every gentle-ai account current:
+
+- **New installs** — `wsk ai` / `wsk setup` run `gentle-ai install` followed by `gentle-ai sync` per account automatically.
+- **Existing installs** — run `wsk sync` to `gentle-ai sync` all gentle-ai accounts, or `wsk update` (which also runs `gentle-ai upgrade` to refresh the managed tool binaries first).
+
+Each sync is scoped to the account's `~/.claude-{account}` dir using the same temporary `~/.claude` swap as install, since gentle-ai only operates on `~/.claude` and refuses symlinks.
 
 ### Curated skills
 

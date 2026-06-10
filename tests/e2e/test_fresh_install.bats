@@ -52,10 +52,10 @@ teardown() {
   [ -f "${WSK_DIR}/stow/.ssh/config" ]
 }
 
-@test "render_all creates .zshrc" {
+@test "render_all creates the zsh fragment" {
   source "${WSK_DIR}/lib/render.sh"
   render_all
-  [ -f "${WSK_DIR}/stow/.zshrc" ]
+  [ -f "${WSK_DIR}/.rendered/wsk-zshrc" ]
 }
 
 @test "render_all creates CLAUDE.md per account" {
@@ -72,5 +72,7 @@ teardown() {
   link_dotfiles
   [ -L "$HOME/.gitconfig" ]
   [ -L "$HOME/.gitignore_global" ]
-  [ -L "$HOME/.zshrc" ]
+  # ~/.zshrc is no longer symlinked: a managed block is spliced into the real file.
+  [ -f "$HOME/.zshrc" ]
+  grep -qF '# >>> work-swift-kit >>>' "$HOME/.zshrc"
 }

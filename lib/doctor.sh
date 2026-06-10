@@ -18,6 +18,19 @@ _check_link() {
   fi
 }
 
+# ~/.zshrc is not symlinked: WSK splices a managed block into the user's own
+# file. Verify the block is present rather than checking for a symlink.
+_check_zshrc_block() {
+  local rc="$HOME/.zshrc"
+  if [[ ! -f "$rc" ]]; then
+    check_fail "missing: ~/.zshrc"
+  elif grep -qF '# >>> work-swift-kit >>>' "$rc" 2>/dev/null; then
+    check_pass "managed block: ~/.zshrc"
+  else
+    check_warn "~/.zshrc exists but has no Work-Swift-Kit block — run: wsk relink"
+  fi
+}
+
 # Read-only health check of dependencies, packages, links and accounts.
 _run_doctor_output() {
   ui_section "Check configuration"
@@ -77,6 +90,40 @@ _run_doctor_output() {
   else
     check_fail "claude not installed — run: wsk ai"
   fi
+
+  # ── Claude productivity tools ─────────────────────────────────────────
+  ui_subhead "Claude productivity tools"
+  if command -v rtk &>/dev/null; then
+    check_pass "rtk installed"
+  else
+    check_warn "rtk not installed (optional) — run: wsk ai"
+  fi
+
+  local _tool_acct _settings
+  for _tool_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    _settings="${HOME}/.claude-${_tool_acct}/settings.json"
+
+    if command -v rtk &>/dev/null; then
+      if [[ -f "$_settings" ]] && grep -q 'rtk hook claude' "$_settings" 2>/dev/null; then
+        check_pass "${_tool_acct}: rtk hook wired"
+      else
+        check_warn "${_tool_acct}: rtk hook missing — run: wsk ai"
+      fi
+    fi
+
+    if [[ -f "$_settings" ]] && grep -q '"caveman@caveman"' "$_settings" 2>/dev/null; then
+      check_pass "${_tool_acct}: caveman plugin enabled"
+    else
+      check_warn "${_tool_acct}: caveman plugin not enabled (optional) — run: wsk ai"
+    fi
+
+    # Duplicate-install guard: standalone caveman hooks alongside the plugin
+    # cause every hook to fire twice.
+    if [[ -f "$_settings" ]] && grep -q '"caveman@caveman"' "$_settings" 2>/dev/null \
+       && grep -q 'caveman-activate.js' "$_settings" 2>/dev/null; then
+      check_warn "${_tool_acct}: caveman installed twice (plugin + manual hooks) — remove manual hook entries from settings.json"
+    fi
+  done
 
   # ── AI frameworks (per account) ──────────────────────────────────────
   ui_subhead "AI frameworks (per account)"
@@ -159,7 +206,7 @@ _run_doctor_output() {
   ui_subhead "Dotfile links"
   _check_link "$HOME/.gitconfig"
   _check_link "$HOME/.gitignore_global"
-  _check_link "$HOME/.zshrc"
+  _check_zshrc_block
   _check_link "$HOME/.ssh/config"
 
   ui_subhead "Accounts (${#WSK_ACCOUNTS[@]})"

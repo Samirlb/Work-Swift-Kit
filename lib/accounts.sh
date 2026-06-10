@@ -16,20 +16,42 @@ load_accounts() {
   done
 }
 
+# Read one KEY=value from an account env file (empty string if absent).
+_account_env_get() {
+  local env_file="$1" key="$2"
+  [[ -f "$env_file" ]] || return 0
+  grep "^${key}=" "$env_file" 2>/dev/null | cut -d= -f2- || true
+}
+
 _collect_single_account() {
   local name="$1"
   local display_label="${2:-$name}"
 
   log_info "Setting up account: $display_label"
-  log_info "This will create shell commands: ${name} and gh-${name}"
+  log_info "This will create shell commands: ${name}, gh-${name} and claude-${name}"
 
   local display_name git_name git_email github_user projects_dir ssh_key
 
-  display_name=$(ui_input "Display name for $display_label (label only, not the command):" "$display_label") || return 130
-  git_name=$(ui_input "Git name for $display_label:") || return 130
-  git_email=$(ui_input "Git email for $display_label:") || return 130
-  github_user=$(ui_input "GitHub username for $display_label:") || return 130
-  projects_dir=$(ui_input "Projects directory for $display_label:" "$HOME/Documents/$display_label") || return 130
+  # Prefill from a previously saved account so re-runs edit existing values
+  # instead of forcing blind re-entry (which invites duplicates like "Work 2").
+  local prev_env="${WSK_DIR}/accounts/${name}.env"
+  local d_display d_git_name d_git_email d_github d_projects
+  d_display="$(_account_env_get "$prev_env" DISPLAY_NAME)"
+  d_git_name="$(_account_env_get "$prev_env" GIT_NAME)"
+  d_git_email="$(_account_env_get "$prev_env" GIT_EMAIL)"
+  d_github="$(_account_env_get "$prev_env" GIT_GITHUB_USER)"
+  d_projects="$(_account_env_get "$prev_env" PROJECTS_DIR)"
+  [[ -n "$d_display" ]] || d_display="$display_label"
+  [[ -n "$d_projects" ]] || d_projects="$HOME/Documents/$display_label"
+  if [[ -f "$prev_env" ]]; then
+    log_info "Account '$name' already exists — current values are prefilled."
+  fi
+
+  display_name=$(ui_input "Display name for $display_label (label only, not the command):" "$d_display") || return 130
+  git_name=$(ui_input "Git name for $display_label:" "$d_git_name") || return 130
+  git_email=$(ui_input "Git email for $display_label:" "$d_git_email") || return 130
+  github_user=$(ui_input "GitHub username for $display_label:" "$d_github") || return 130
+  projects_dir=$(ui_input "Projects directory for $display_label:" "$d_projects") || return 130
 
   local ssh_choice
   ssh_choice=$(ui_choose "SSH key for $display_label:" "Generate new ed25519 key" "Use existing key") || return 130
@@ -60,6 +82,11 @@ _collect_single_account() {
     fi
   fi
 
+  # Preserve keys written by other modules (e.g. AI_FRAMEWORK from frameworks.sh)
+  # so editing an account does not silently drop them.
+  local prev_framework
+  prev_framework="$(_account_env_get "$prev_env" AI_FRAMEWORK)"
+
   mkdir -p "${WSK_DIR}/accounts"
   cat > "${WSK_DIR}/accounts/${name}.env" <<EOF
 ACCOUNT_NAME=${name}
@@ -70,12 +97,53 @@ GIT_GITHUB_USER=${github_user}
 PROJECTS_DIR=${projects_dir}
 WSK_SSH_KEY=${ssh_key}
 EOF
+  [[ -n "$prev_framework" ]] && echo "AI_FRAMEWORK=${prev_framework}" >> "${WSK_DIR}/accounts/${name}.env"
 
   log_success "Account $name saved."
 }
 
 collect_accounts() {
   log_info "Collecting account information..."
+
+  # Re-run guard: if accounts already exist, offer to reuse/edit/add instead
+  # of forcing a full re-collection that duplicates existing setups.
+  load_accounts
+  if [[ "${#WSK_ACCOUNTS[@]}" -gt 0 ]]; then
+    log_info "Found existing accounts: ${WSK_ACCOUNTS[*]}"
+    local action
+    action=$(ui_choose "Accounts already configured — what do you want to do?" \
+      "Keep existing accounts" \
+      "Edit an existing account" \
+      "Add a new account" \
+      "Recreate all accounts") || { log_warn "Account setup cancelled."; return 130; }
+
+    case "$action" in
+      "Keep existing accounts")
+        log_success "Using existing accounts: ${WSK_ACCOUNTS[*]}"
+        return 0
+        ;;
+      "Edit an existing account")
+        local target _label
+        target=$(ui_choose "Which account?" "${WSK_ACCOUNTS[@]}") || { log_warn "Account setup cancelled."; return 130; }
+        _label="$(tr '[:lower:]' '[:upper:]' <<< "${target:0:1}")${target:1}"
+        _collect_single_account "$target" "$_label" || { log_warn "Account setup cancelled."; return 130; }
+        return 0
+        ;;
+      "Add a new account")
+        local extra_name
+        extra_name=$(ui_input "Account name (lowercase, no spaces):") || { log_warn "Account setup cancelled."; return 130; }
+        if [[ " ${WSK_ACCOUNTS[*]} " == *" ${extra_name} "* ]]; then
+          log_warn "Account '${extra_name}' already exists — editing it instead of duplicating."
+        fi
+        _collect_single_account "$extra_name" || { log_warn "Account setup cancelled."; return 130; }
+        load_accounts
+        return 0
+        ;;
+      "Recreate all accounts")
+        log_warn "Recreating accounts — existing values will be prefilled per account."
+        ;;
+    esac
+  fi
 
   local mode
   mode=$(ui_choose "How many accounts do you want to configure?" \

@@ -11,13 +11,83 @@ backup_if_real() {
   fi
 }
 
+# inject_zshrc_block — splice the rendered WSK fragment into ~/.zshrc between
+# managed markers instead of replacing the file. Idempotent: re-running strips
+# the old block and writes a fresh one, preserving all user content around it.
+inject_zshrc_block() {
+  local rc="$HOME/.zshrc"
+  local frag="${WSK_DIR}/.rendered/wsk-zshrc"
+  local begin="# >>> work-swift-kit >>>"
+  local end="# <<< work-swift-kit <<<"
+
+  if [[ ! -f "$frag" ]]; then
+    log_warn "zsh fragment not rendered ($frag) — skipping ~/.zshrc update."
+    return 0
+  fi
+
+  # Migration: older WSK installs symlinked ~/.zshrc into the stow dir.
+  # Convert it back to a real file (dereferencing its contents) so we can
+  # manage just our block.
+  if [[ -L "$rc" ]]; then
+    local deref; deref="$(readlink -f "$rc" 2>/dev/null || true)"
+    rm "$rc"
+    if [[ -n "$deref" && -f "$deref" && -s "$deref" ]]; then
+      cp "$deref" "$rc"
+    else
+      # Symlink target missing or empty — recover from the most recent backup
+      # that has real content so the user's original config is not lost.
+      local recovered=""
+      for bak in $(ls -t "${rc}.bak."* 2>/dev/null); do
+        if [[ -s "$bak" ]]; then
+          cp "$bak" "$rc"
+          recovered="$bak"
+          break
+        fi
+      done
+      if [[ -n "$recovered" ]]; then
+        log_warn "Broken symlink: restored ~/.zshrc from backup $recovered."
+      else
+        touch "$rc"
+        log_warn "Broken symlink and no backup found — starting with empty ~/.zshrc."
+      fi
+    fi
+    log_info "Converted symlinked ~/.zshrc to a managed-block file."
+  fi
+
+  [[ -e "$rc" ]] || touch "$rc"
+
+  # First time we touch this file → keep a one-off backup of the original.
+  # Skip the backup if the file is empty to avoid overwriting a useful backup
+  # with an empty one.
+  if ! grep -qF "$begin" "$rc" 2>/dev/null && [[ -s "$rc" ]]; then
+    cp "$rc" "${rc}.bak.$(date +%Y%m%d-%H%M%S)"
+  fi
+
+  # Strip any existing managed block, then append a fresh one.
+  local tmp; tmp="$(mktemp)"
+  awk -v b="$begin" -v e="$end" '
+    $0==b {skip=1; next}
+    $0==e {skip=0; next}
+    !skip {print}
+  ' "$rc" > "$tmp"
+
+  {
+    printf '%s\n' "$begin"
+    printf '# Managed by Work-Swift-Kit — edits between these markers are overwritten.\n'
+    cat "$frag"
+    printf '%s\n' "$end"
+  } >> "$tmp"
+
+  mv "$tmp" "$rc"
+  log_success "Work-Swift-Kit block written to ~/.zshrc (existing config preserved)."
+}
+
 link_dotfiles() {
   log_info "Linking dotfiles via GNU Stow..."
 
   local targets=(
     "$HOME/.gitconfig"
     "$HOME/.gitignore_global"
-    "$HOME/.zshrc"
     "$HOME/.ssh/config"
   )
 
@@ -32,6 +102,10 @@ link_dotfiles() {
   done
 
   stow --restow --no-folding --dir="${WSK_DIR}" --target="$HOME" stow
+
+  # ~/.zshrc is no longer stow-managed: splice a marked block instead so the
+  # user's own ~/.zshrc is never replaced.
+  inject_zshrc_block
 
   log_success "Dotfiles linked."
 }

@@ -79,6 +79,23 @@ install_curated_skills() {
 }
 
 # ---------------------------------------------------------------------------
+# _patch_gentle_ai_commands <cfg_dir>
+# Fixes shell patterns in gentle-ai generated command files that Claude Code
+# rejects at permission-check time (e.g. `basename "$(pwd)"` uses $() which
+# can't be statically analyzed). Safe to run on every install/sync.
+# ---------------------------------------------------------------------------
+_patch_gentle_ai_commands() {
+  local cfg_dir="$1"
+  local commands_dir="${cfg_dir}/commands"
+  [[ -d "$commands_dir" ]] || return 0
+  local f
+  for f in "$commands_dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    sed -i '' '/basename.*\$.*pwd\|basename.*\$(pwd)/d' "$f" 2>/dev/null || true
+  done
+}
+
+# ---------------------------------------------------------------------------
 # install_ai_framework <account>
 # Presents an exclusive framework choice (or reuses an existing persisted one),
 # installs the chosen framework with CLAUDE_CONFIG_DIR scoped to the account,
@@ -110,22 +127,18 @@ install_ai_framework() {
         brew tap Gentleman-Programming/homebrew-tap
         brew install gentle-ai
       fi
-      # gentle-ai rejects ~/.claude when it is a symlink (checks parent dir too).
-      # Temporarily rename cfg_dir → ~/.claude so it's a real directory, run, restore.
-      local _dot_claude="$HOME/.claude"
-      local _was_link=0 _link_target=""
-      if [[ -L "$_dot_claude" ]]; then
-        _was_link=1
-        _link_target="$(readlink "$_dot_claude")"
-        rm "$_dot_claude"
-        mv "$cfg_dir" "$_dot_claude"
-      fi
-      rm -f "$_dot_claude/CLAUDE.md"
-      gentle-ai install --agent claude-code || true
-      if (( _was_link )); then
-        mv "$_dot_claude" "$cfg_dir"
-        ln -sfn "$_link_target" "$_dot_claude"
-      fi
+      # gentle-ai owns CLAUDE.md — drop any stale copy so install regenerates it.
+      # (cfg_dir is swapped to ~/.claude by _gentle_ai_scoped, so removing it here
+      # is equivalent to removing ~/.claude/CLAUDE.md after the swap.)
+      rm -f "$cfg_dir/CLAUDE.md"
+      # gentle-ai only operates on ~/.claude and ignores CLAUDE_CONFIG_DIR, so
+      # scope each step to this account's dir via the swap helper.
+      _gentle_ai_scoped "$cfg_dir" install --agent claude-code
+      # Sync managed configs + skills to the current gentle-ai version.
+      _gentle_ai_scoped "$cfg_dir" sync
+      # gentle-ai generates `!`basename "$(pwd)"`` in sdd-new.md which Claude Code
+      # rejects at permission-check time ($() can't be statically analyzed).
+      _patch_gentle_ai_commands "$cfg_dir"
       ;;
 
     gsd)
@@ -191,6 +204,89 @@ run_ai_for_all_accounts() {
 }
 
 # ---------------------------------------------------------------------------
+# _gentle_ai_scoped <cfg_dir> <gentle-ai args...>
+# Runs a gentle-ai command scoped to a single account's config dir.
+#
+# gentle-ai always operates on ~/.claude and IGNORES CLAUDE_CONFIG_DIR (the var
+# does not appear in its binary), so the only way to target a per-account dir is
+# to physically place it at ~/.claude for the duration of the command.
+#
+# This swap is unconditional: whatever ~/.claude currently is — a symlink, a
+# real directory, or nothing — is snapshotted and restored afterward. That makes
+# per-account scoping deterministic on fresh installs too, not just when the user
+# happens to have pre-created a ~/.claude symlink.
+#
+# CLAUDE_CONFIG_DIR is intentionally NOT exported here: setting it to the old
+# cfg_dir path (which no longer exists during the swap) caused newer gentle-ai
+# versions to create a nested ~/.claude-{acct}/.claude/ tree on each sync run,
+# accumulating duplicate skill directories. The dir is already at ~/.claude, so
+# tools that honor CLAUDE_CONFIG_DIR will find it there via the default path.
+# ---------------------------------------------------------------------------
+_gentle_ai_scoped() {
+  local cfg_dir="$1"; shift
+
+  local dot="$HOME/.claude"
+  local had_link=0 link_target="" stash=""
+
+  # Snapshot whatever ~/.claude is now so we can put it back later.
+  if [[ -L "$dot" ]]; then
+    had_link=1
+    link_target="$(readlink "$dot")"
+    rm "$dot"
+  elif [[ -e "$dot" ]]; then
+    stash="${dot}.wsk-stash.$$"
+    mv "$dot" "$stash"
+  fi
+
+  # Put this account's real dir at ~/.claude, run gentle-ai, move it back.
+  mv "$cfg_dir" "$dot"
+  gentle-ai "$@" || true
+  # Remove any nested .claude/ gentle-ai may have created inside the config dir.
+  rm -rf "$dot/.claude"
+  mv "$dot" "$cfg_dir"
+
+  # Restore the original ~/.claude (symlink, stashed dir, or leave absent).
+  if (( had_link )); then
+    ln -sfn "$link_target" "$dot"
+  elif [[ -n "$stash" ]]; then
+    mv "$stash" "$dot"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# sync_gentle_ai_accounts
+# Runs `gentle-ai sync` for every account whose AI_FRAMEWORK is gentle-ai,
+# scoped to each account's ~/.claude-{acct} dir. Used by `wsk update` and the
+# dedicated `wsk sync` command so both new and existing installs stay current.
+# ---------------------------------------------------------------------------
+sync_gentle_ai_accounts() {
+  if ! command -v gentle-ai &>/dev/null; then
+    log_warn "gentle-ai not installed — skipping sync."
+    return 0
+  fi
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    load_accounts
+  fi
+
+  local acct fw env_file synced=0
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    env_file="${WSK_DIR}/accounts/${acct}.env"
+    fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
+    [[ "$fw" == "gentle-ai" ]] || continue
+
+    synced=1
+    log_info "Syncing gentle-ai for ${acct}..."
+    local acct_dir="${HOME}/.claude-${acct}"
+    _gentle_ai_scoped "$acct_dir" sync
+    _patch_gentle_ai_commands "$acct_dir"
+    check_pass "${acct}: gentle-ai synced"
+  done
+
+  (( synced )) || log_info "No gentle-ai accounts to sync."
+}
+
+# ---------------------------------------------------------------------------
 # run_ai
 # Standalone entry point for `wsk ai`.
 # Loads accounts, detects env, installs global tooling, then runs the per-account loop.
@@ -202,5 +298,11 @@ run_ai() {
   install_node
   install_pnpm
   install_claude_code
+  if ui_confirm "Install RTK (Bash output compression for Claude)?"; then
+    install_rtk
+  fi
+  if ui_confirm "Install Caveman (response token compression for Claude)?"; then
+    install_caveman
+  fi
   run_ai_for_all_accounts
 }

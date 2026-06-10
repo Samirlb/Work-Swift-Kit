@@ -17,8 +17,11 @@ fi
 # ---------------------------------------------------------------------------
 install_claude_code() {
   if command -v claude &>/dev/null; then
-    check_pass "claude already installed"
-    return 0
+    if claude --version &>/dev/null 2>&1; then
+      check_pass "claude already installed"
+      return 0
+    fi
+    log_info "claude wrapper found but native binary missing — reinstalling..."
   fi
 
   if [[ "${WSK_OS:-}" == "windows" ]]; then
@@ -71,6 +74,124 @@ _write_codegraph_mcp_config() {
   else
     check_warn "${acct}: .mcp.json exists — add codegraph server manually (jq not available)"
   fi
+}
+
+# ---------------------------------------------------------------------------
+# install_rtk
+# Installs RTK (Rust Token Killer) via Homebrew and wires the PreToolUse hook
+# into EVERY account's Claude settings so Bash commands are auto-compressed.
+# NOTE: `rtk init -g` does NOT write the hook itself — it only prints a manual
+# snippet — so the kit merges the hook entry directly via jq.
+# Idempotent via command -v rtk and per-account hook checks.
+# ---------------------------------------------------------------------------
+_write_rtk_hook() {
+  local acct="$1"
+  local cfg_dir="${HOME}/.claude-${acct}"
+  local settings="${cfg_dir}/settings.json"
+
+  mkdir -p "$cfg_dir"
+
+  if [[ -f "$settings" ]] && grep -q 'rtk hook claude' "$settings" 2>/dev/null; then
+    check_pass "${acct}: rtk hook already configured"
+    return 0
+  fi
+
+  if ! command -v jq &>/dev/null; then
+    check_warn "${acct}: jq not available — add the rtk PreToolUse hook to ${settings} manually"
+    return 0
+  fi
+
+  [[ -f "$settings" ]] || printf '{}\n' > "$settings"
+
+  local tmp
+  tmp="$(mktemp)"
+  jq '.hooks.PreToolUse = ((.hooks.PreToolUse // []) + [{
+        matcher: "Bash",
+        hooks: [{ type: "command", command: "rtk hook claude" }]
+      }])' "$settings" > "$tmp" && mv "$tmp" "$settings"
+  check_pass "${acct}: rtk hook configured"
+}
+
+install_rtk() {
+  if ! command -v rtk &>/dev/null; then
+    ui_spin "Installing rtk..." brew install rtk
+  else
+    check_pass "rtk already installed"
+  fi
+
+  command -v rtk &>/dev/null || return 0
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    load_accounts
+  fi
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    check_warn "no accounts configured — rtk hook not wired (run accounts setup first)"
+    return 0
+  fi
+
+  local acct
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    _write_rtk_hook "$acct"
+  done
+}
+
+# ---------------------------------------------------------------------------
+# install_caveman
+# Enables the Caveman token-compression plugin for EVERY account via the
+# Claude Code plugin system (marketplace entry + enabledPlugins).
+# Plugin-based install only — the standalone curl installer is intentionally
+# NOT used because it duplicates the plugin's SessionStart/UserPromptSubmit
+# hooks (both fire on every prompt).
+# Idempotent via per-account settings checks.
+# ---------------------------------------------------------------------------
+_enable_caveman_plugin() {
+  local acct="$1"
+  local cfg_dir="${HOME}/.claude-${acct}"
+  local settings="${cfg_dir}/settings.json"
+
+  mkdir -p "$cfg_dir"
+
+  if [[ -f "$settings" ]] && grep -q '"caveman@caveman"' "$settings" 2>/dev/null; then
+    check_pass "${acct}: caveman plugin already enabled"
+    return 0
+  fi
+
+  if ! command -v jq &>/dev/null; then
+    check_warn "${acct}: jq not available — enable the caveman plugin in ${settings} manually"
+    return 0
+  fi
+
+  [[ -f "$settings" ]] || printf '{}\n' > "$settings"
+
+  local tmp
+  tmp="$(mktemp)"
+  jq '.enabledPlugins."caveman@caveman" = true
+      | .extraKnownMarketplaces.caveman = {
+          source: { source: "github", repo: "JuliusBrussee/caveman" }
+        }' "$settings" > "$tmp" && mv "$tmp" "$settings"
+  check_pass "${acct}: caveman plugin enabled"
+}
+
+install_caveman() {
+  if ! command -v node &>/dev/null; then
+    check_warn "caveman requires Node ≥18 — skipping"
+    return 0
+  fi
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    load_accounts
+  fi
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    check_warn "no accounts configured — caveman not enabled (run accounts setup first)"
+    return 0
+  fi
+
+  local acct
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    _enable_caveman_plugin "$acct"
+  done
 }
 
 # ---------------------------------------------------------------------------

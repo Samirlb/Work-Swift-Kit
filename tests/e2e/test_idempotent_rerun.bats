@@ -59,5 +59,7 @@ teardown() {
   link_dotfiles
 
   [ -L "$HOME/.gitconfig" ]
-  [ -L "$HOME/.zshrc" ]
+  # ~/.zshrc is a managed-block file (not a symlink); the block stays singular.
+  [ -f "$HOME/.zshrc" ]
+  [ "$(grep -c '# >>> work-swift-kit >>>' "$HOME/.zshrc")" -eq 1 ]
 }
