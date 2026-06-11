@@ -335,3 +335,312 @@ STUB
   # gum confirm must have been called with "Reconfigure"
   assert_stub_called "Reconfigure"
 }
+
+# ===========================================================================
+# Scenario 8: reconfigure accepted, pre-existing rtk hook + caveman + codegraph
+#              → all three re-wired after reconfigure
+# ===========================================================================
+
+@test "reconfigure accepted — rtk hook, caveman, codegraph re-wired after reconfigure" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  local cfg_dir="$HOME/.claude-work"
+  mkdir -p "$cfg_dir"
+
+  # Pre-populate settings.json with rtk hook and caveman plugin (as they would
+  # be after a normal install).
+  cat > "$cfg_dir/settings.json" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "rtk hook claude" }] }
+    ]
+  },
+  "enabledPlugins": { "caveman@caveman": true },
+  "extraKnownMarketplaces": { "caveman": { "source": { "source": "github", "repo": "JuliusBrussee/caveman" } } }
+}
+JSON
+
+  # Pre-populate .claude.json with codegraph MCP entry.
+  cat > "$cfg_dir/.claude.json" <<'JSON'
+{
+  "mcpServers": {
+    "codegraph": { "command": "codegraph", "args": ["serve", "--mcp"] }
+  }
+}
+JSON
+
+  # gentle-ai stub: records calls, succeeds.
+  cat > "$WSK_STUB_BIN/gentle-ai" <<'STUB'
+#!/usr/bin/env bash
+echo "gentle-ai $*" >> "${WSK_STUB_LOG:-/dev/null}"
+# Simulate uninstall wiping settings.json and .claude.json
+if [[ "$1" == "uninstall" ]]; then
+  rm -f "$HOME/.claude-work/settings.json"
+  rm -f "$HOME/.claude-work/.claude.json"
+fi
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/gentle-ai"
+
+  # Add rtk stub (signals binary is present on PATH).
+  cat > "$WSK_STUB_BIN/rtk" <<'STUB'
+#!/usr/bin/env bash
+echo "rtk $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/rtk"
+
+  # Add codegraph stub.
+  cat > "$WSK_STUB_BIN/codegraph" <<'STUB'
+#!/usr/bin/env bash
+echo "codegraph $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/codegraph"
+
+  # claude stub for `claude mcp add`.
+  cat > "$WSK_STUB_BIN/claude" <<'STUB'
+#!/usr/bin/env bash
+echo "claude $*" >> "${WSK_STUB_LOG:-/dev/null}"
+# Write the MCP entry into .claude.json so idempotency checks pass on re-call.
+cfg="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+mkdir -p "$cfg"
+if [[ "$1 $2 $3 $4" == "mcp add --scope user" ]]; then
+  srv="$5"
+  printf '{"mcpServers":{"%s":{"command":"%s","args":["serve","--mcp"]}}}\n' "$srv" "$srv" > "$cfg/.claude.json"
+fi
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/claude"
+
+  # gum: confirm → YES (accept reconfigure), choose → gentle-ai.
+  cat > "$WSK_STUB_BIN/gum" <<'STUB'
+#!/usr/bin/env bash
+echo "gum $*" >> "${WSK_STUB_LOG:-/dev/null}"
+case "$1" in
+  confirm) exit 0 ;;
+  choose)  echo "gentle-ai" ;;
+  *)       exit 0 ;;
+esac
+STUB
+  chmod +x "$WSK_STUB_BIN/gum"
+
+  unset -f gum brew 2>/dev/null || true
+  bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    export WSK_AI_RECONFIGURE=1
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    install_ai_framework 'work' 2>&1 || true
+  " 2>&1
+
+  # rtk hook must be re-wired into settings.json.
+  local settings="$cfg_dir/settings.json"
+  [[ -f "$settings" ]] || { echo "ASSERT FAILED: settings.json missing after reconfigure" >&2; return 1; }
+  grep -q 'rtk hook claude' "$settings" || { echo "ASSERT FAILED: rtk hook missing after reconfigure" >&2; cat "$settings" >&2; return 1; }
+
+  # caveman plugin must be re-enabled in settings.json.
+  grep -q '"caveman@caveman"' "$settings" || { echo "ASSERT FAILED: caveman plugin missing after reconfigure" >&2; cat "$settings" >&2; return 1; }
+
+  # codegraph MCP must be re-registered in .claude.json.
+  local claude_json="$cfg_dir/.claude.json"
+  [[ -f "$claude_json" ]] || { echo "ASSERT FAILED: .claude.json missing after reconfigure" >&2; return 1; }
+  grep -q '"codegraph"' "$claude_json" || { echo "ASSERT FAILED: codegraph MCP missing after reconfigure" >&2; cat "$claude_json" >&2; return 1; }
+}
+
+# ===========================================================================
+# Scenario 9: account that never had codegraph — reconfigure does NOT add it
+# ===========================================================================
+
+@test "reconfigure accepted — account without codegraph does NOT get codegraph added" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  local cfg_dir="$HOME/.claude-work"
+  mkdir -p "$cfg_dir"
+
+  # Pre-populate settings.json with rtk only — no codegraph in .claude.json.
+  cat > "$cfg_dir/settings.json" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "rtk hook claude" }] }
+    ]
+  }
+}
+JSON
+
+  # No .claude.json at all (account never had codegraph).
+
+  # gentle-ai stub: uninstall wipes settings.json.
+  cat > "$WSK_STUB_BIN/gentle-ai" <<'STUB'
+#!/usr/bin/env bash
+echo "gentle-ai $*" >> "${WSK_STUB_LOG:-/dev/null}"
+if [[ "$1" == "uninstall" ]]; then
+  rm -f "$HOME/.claude-work/settings.json"
+  rm -f "$HOME/.claude-work/.claude.json"
+fi
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/gentle-ai"
+
+  # codegraph stub present on PATH (binary exists globally, but was NOT registered
+  # for this account — the fix must NOT add it).
+  cat > "$WSK_STUB_BIN/codegraph" <<'STUB'
+#!/usr/bin/env bash
+echo "codegraph $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/codegraph"
+
+  # rtk stub present.
+  cat > "$WSK_STUB_BIN/rtk" <<'STUB'
+#!/usr/bin/env bash
+echo "rtk $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/rtk"
+
+  # claude stub.
+  cat > "$WSK_STUB_BIN/claude" <<'STUB'
+#!/usr/bin/env bash
+echo "claude $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/claude"
+
+  # gum: confirm → YES.
+  cat > "$WSK_STUB_BIN/gum" <<'STUB'
+#!/usr/bin/env bash
+echo "gum $*" >> "${WSK_STUB_LOG:-/dev/null}"
+case "$1" in
+  confirm) exit 0 ;;
+  choose)  echo "gentle-ai" ;;
+  *)       exit 0 ;;
+esac
+STUB
+  chmod +x "$WSK_STUB_BIN/gum"
+
+  unset -f gum brew 2>/dev/null || true
+  bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    export WSK_AI_RECONFIGURE=1
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    install_ai_framework 'work' 2>&1 || true
+  " 2>&1
+
+  # codegraph must NOT have been registered (it was not present before uninstall).
+  local claude_json="$cfg_dir/.claude.json"
+  if [[ -f "$claude_json" ]] && grep -q '"codegraph"' "$claude_json" 2>/dev/null; then
+    echo "ASSERT FAILED: codegraph was added but account never had it before reconfigure" >&2
+    cat "$claude_json" >&2
+    return 1
+  fi
+}
+
+# ===========================================================================
+# Scenario 10: reconfigure accepted — caveman NOT re-enabled when it was absent
+# ===========================================================================
+
+@test "reconfigure accepted — account without caveman does NOT get caveman added" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  local cfg_dir="$HOME/.claude-work"
+  mkdir -p "$cfg_dir"
+
+  # settings.json with rtk hook only — no caveman.
+  cat > "$cfg_dir/settings.json" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "rtk hook claude" }] }
+    ]
+  }
+}
+JSON
+
+  # gentle-ai stub: uninstall wipes settings.json.
+  cat > "$WSK_STUB_BIN/gentle-ai" <<'STUB'
+#!/usr/bin/env bash
+echo "gentle-ai $*" >> "${WSK_STUB_LOG:-/dev/null}"
+if [[ "$1" == "uninstall" ]]; then
+  rm -f "$HOME/.claude-work/settings.json"
+fi
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/gentle-ai"
+
+  # rtk stub present.
+  cat > "$WSK_STUB_BIN/rtk" <<'STUB'
+#!/usr/bin/env bash
+echo "rtk $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/rtk"
+
+  # gum: confirm → YES.
+  cat > "$WSK_STUB_BIN/gum" <<'STUB'
+#!/usr/bin/env bash
+echo "gum $*" >> "${WSK_STUB_LOG:-/dev/null}"
+case "$1" in
+  confirm) exit 0 ;;
+  choose)  echo "gentle-ai" ;;
+  *)       exit 0 ;;
+esac
+STUB
+  chmod +x "$WSK_STUB_BIN/gum"
+
+  unset -f gum brew 2>/dev/null || true
+  bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    export WSK_AI_RECONFIGURE=1
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    install_ai_framework 'work' 2>&1 || true
+  " 2>&1
+
+  # caveman must NOT appear in the resulting settings.json.
+  local settings="$cfg_dir/settings.json"
+  if [[ -f "$settings" ]] && grep -q '"caveman@caveman"' "$settings" 2>/dev/null; then
+    echo "ASSERT FAILED: caveman was added but account never had it before reconfigure" >&2
+    cat "$settings" >&2
+    return 1
+  fi
+}

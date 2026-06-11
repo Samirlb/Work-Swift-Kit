@@ -218,10 +218,28 @@ install_ai_framework() {
   # When an account already has a framework set and the gate is on, ask the user
   # whether they want to reconfigure (default No). This keeps unattended runs clean.
   local _force_install=0
+  # Snapshot of MCP server keys present before uninstall so they can be
+  # restored after reconfigure (per-account .claude.json wiring is wiped by
+  # `gentle-ai uninstall`; guards on global binary presence would otherwise
+  # silently skip re-registration).
+  local _pre_reconfigure_mcp_servers=""
+  # Whether caveman was enabled before uninstall (for re-wiring after install).
+  local _had_caveman=0
   if [[ -n "$choice" && "${WSK_AI_RECONFIGURE:-0}" == "1" ]]; then
     if ui_confirm "Reconfigure AI framework for ${acct}? (currently ${choice})" --default-no; then
       # Warn: ~/.gentle-ai/state.json is global — persona/model changes affect ALL accounts.
       log_warn "Note: ~/.gentle-ai/state.json is GLOBAL — persona and model assignments affect ALL configured accounts."
+
+      # Snapshot per-account state BEFORE uninstall so we can restore it after.
+      local _pre_settings="${cfg_dir}/settings.json"
+      local _pre_claude_json="${cfg_dir}/.claude.json"
+      if [[ -f "$_pre_claude_json" ]] && command -v jq &>/dev/null; then
+        _pre_reconfigure_mcp_servers="$(jq -r '(.mcpServers // {}) | keys[]' "$_pre_claude_json" 2>/dev/null || true)"
+      fi
+      if [[ -f "$_pre_settings" ]] && grep -q '"caveman@caveman"' "$_pre_settings" 2>/dev/null; then
+        _had_caveman=1
+      fi
+
       local _uninstall_rc=0
       _gentle_ai_scoped "$cfg_dir" uninstall --agent claude-code --yes || _uninstall_rc=$?
       if [[ "$_uninstall_rc" -eq 0 ]]; then
@@ -229,6 +247,9 @@ install_ai_framework() {
         choice=""
       else
         log_warn "${acct}: gentle-ai uninstall failed (rc=${_uninstall_rc}) — keeping existing framework"
+        # Clear snapshots — reconfigure did not proceed.
+        _pre_reconfigure_mcp_servers=""
+        _had_caveman=0
       fi
     fi
   fi
@@ -300,6 +321,47 @@ install_ai_framework() {
       return 1
       ;;
   esac
+
+  # ---------------------------------------------------------------------------
+  # Post-reconfigure re-wiring
+  # When _force_install=1, gentle-ai uninstall wiped per-account settings.json
+  # and .claude.json.  The global-binary guards on install_rtk / install_caveman
+  # / install_codegraph would skip re-wiring because the binaries are still
+  # present on PATH.  Re-run the idempotent per-account wiring functions
+  # directly so rtk hook, caveman plugin, and MCP registrations are restored.
+  # ---------------------------------------------------------------------------
+  if [[ "$_force_install" -eq 1 ]]; then
+    # rtk hook: re-wire if the binary is present.
+    if command -v rtk &>/dev/null; then
+      _write_rtk_hook "$acct"
+    fi
+
+    # caveman plugin: re-enable only if it was present before uninstall.
+    if [[ "$_had_caveman" -eq 1 ]]; then
+      _enable_caveman_plugin "$acct"
+    fi
+
+    # MCP servers: restore only the servers that were registered before
+    # uninstall.  Do not force-add servers the user never opted into.
+    if [[ -n "$_pre_reconfigure_mcp_servers" ]]; then
+      local _srv
+      while IFS= read -r _srv; do
+        [[ -z "$_srv" ]] && continue
+        case "$_srv" in
+          codegraph)
+            if command -v codegraph &>/dev/null; then
+              _write_codegraph_mcp_config "$acct" "$cfg_dir"
+            fi
+            ;;
+          context7)
+            if command -v npx &>/dev/null; then
+              _write_context7_mcp_config "$acct" "$cfg_dir"
+            fi
+            ;;
+        esac
+      done <<< "$_pre_reconfigure_mcp_servers"
+    fi
+  fi
 
   # Persist the choice (upsert)
   _persist_account_kv "$env_file" AI_FRAMEWORK "$choice"
