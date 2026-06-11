@@ -115,6 +115,11 @@ run_fix_claude_cmd() {
   run_fix_claude
 }
 
+run_ai_update_cmd() {
+  load_accounts
+  run_ai_update "$@"
+}
+
 run_fix_git_cmd() {
   load_accounts
   shift  # remove the "fix-git" command name; remaining args forwarded to run_fix_git
@@ -133,6 +138,7 @@ COMMANDS
   setup            Full setup: accounts, dotfiles, tools, and AI layer
   accounts         Re-collect accounts and re-link dotfiles
   ai               Install or re-configure AI frameworks for all accounts
+  ai-update        Sync gentle-ai for all accounts; --upgrade upgrades binary first
   sync             Run gentle-ai sync for every gentle-ai account
   fix-claude       Remove ~/.claude symlink and patch CLAUDE.md for all gentle-ai accounts
   fix-git          Convert https github remotes to per-account SSH aliases (dry-run by default)
@@ -156,6 +162,7 @@ dispatch() {
     fix-git)       run_fix_git_cmd "$@" ;;
     update)        run_update ;;
     ai)            run_ai ;;
+    ai-update)     run_ai_update_cmd "${@:2}" ;;
     sync)          run_sync ;;
     version|-v|--version) echo "wsk ${WSK_VERSION}" ;;
     help|-h|--help)       run_help ;;
@@ -185,6 +192,7 @@ while true; do
       "accounts::Accounts only::Configure accounts and authentication" \
       "terminals::Terminals only::Setup shells, aliases and terminal tools" \
       "ai::AI dev tools::Install Claude Code, framework, codegraph and skills per account" \
+      "ai-update::AI Update::Sync gentle-ai configs and skills for all accounts (--upgrade to upgrade binary)" \
       "sync::Sync AI configs::Run gentle-ai sync (configs + skills) for all accounts" \
       "check::Check configuration::Verify installed tools, links and accounts" \
       "update::Update::Pull latest kit and upgrade packages" \
@@ -196,6 +204,7 @@ while true; do
       "Accounts only::Configure accounts and authentication" \
       "Terminals only::Setup shells, aliases and terminal tools" \
       "AI dev tools::Install Claude Code, framework, codegraph and skills per account" \
+      "AI Update::Sync gentle-ai configs and skills for all accounts" \
       "Sync AI configs::Run gentle-ai sync (configs + skills) for all accounts" \
       "Check configuration::Verify installed tools, links and accounts" \
       "Update::Pull latest kit and upgrade packages" \
@@ -208,6 +217,7 @@ while true; do
     *"Accounts only"*)       tui_wrap_action run_accounts ;;
     *"Terminals only"*)      tui_wrap_action install_terminals ;;
     *"AI dev tools"*)        tui_wrap_action run_ai ;;
+    *"AI Update"*)           tui_wrap_action run_ai_update ;;
     *"Sync AI configs"*)     tui_wrap_action run_sync ;;
     *"Check configuration"*) tui_wrap_action --paged run_doctor ;;
     *"Update"*)              tui_wrap_action run_update ;;

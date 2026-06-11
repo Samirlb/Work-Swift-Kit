@@ -467,6 +467,76 @@ sync_gentle_ai_accounts() {
 }
 
 # ---------------------------------------------------------------------------
+# run_ai_update [--upgrade]
+# Per-account scoped update for gentle-ai: optionally upgrades the binary
+# first, then syncs each account and applies post-sync patches.
+#
+# Options:
+#   --upgrade   Run `brew upgrade gentle-ai` (or `gentle-ai upgrade` as
+#               fallback) once before any per-account sync. If the upgrade
+#               fails the command reports and returns 1 immediately without
+#               proceeding to per-account sync.
+#
+# Failures in individual accounts are recorded and the loop continues to
+# remaining accounts. The command exits nonzero if any account failed.
+# ---------------------------------------------------------------------------
+run_ai_update() {
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    load_accounts
+  fi
+
+  # Parse --upgrade flag
+  local _do_upgrade=0
+  local _arg
+  for _arg in "$@"; do
+    [[ "$_arg" == "--upgrade" ]] && _do_upgrade=1
+  done
+
+  # Binary upgrade step (once, before per-account loop)
+  if [[ "$_do_upgrade" -eq 1 ]]; then
+    log_info "Upgrading gentle-ai binary..."
+    local _upgrade_rc=0
+    if brew list gentle-ai &>/dev/null 2>&1; then
+      brew upgrade gentle-ai || _upgrade_rc=$?
+    else
+      gentle-ai upgrade || _upgrade_rc=$?
+    fi
+    if [[ "$_upgrade_rc" -ne 0 ]]; then
+      log_warn "gentle-ai upgrade failed (rc=${_upgrade_rc}) — aborting per-account sync"
+      return 1
+    fi
+  fi
+
+  local acct fw env_file _fail_count=0
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    env_file="${WSK_DIR}/accounts/${acct}.env"
+    fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
+    [[ "$fw" == "gentle-ai" ]] || continue
+
+    local acct_dir="${HOME}/.claude-${acct}"
+    log_info "Updating gentle-ai for ${acct}..."
+    local _sync_rc=0
+    _gentle_ai_scoped "$acct_dir" sync || _sync_rc=$?
+    if [[ "$_sync_rc" -ne 0 ]]; then
+      log_warn "${acct}: gentle-ai sync failed (rc=${_sync_rc})" >&2
+      _fail_count=$(( _fail_count + 1 ))
+    fi
+    # Apply post-sync patches regardless of sync exit code (best-effort)
+    _patch_gentle_ai_commands "$acct_dir" || true
+    _patch_gentle_ai_claude_md "$acct_dir" || true
+    if [[ "$_sync_rc" -eq 0 ]]; then
+      check_pass "${acct}: gentle-ai updated"
+    fi
+  done
+
+  if [[ "$_fail_count" -gt 0 ]]; then
+    log_warn "${_fail_count} account(s) failed ai-update"
+    return 1
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # run_fix_claude
 # One-shot remediation for the ~/.claude ancestor-traversal double-load problem.
 #

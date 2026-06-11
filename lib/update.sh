@@ -36,12 +36,11 @@ run_update() {
     log_success "Tools upgraded."
   fi
 
-  # 2b) Upgrade gentle-ai tooling and re-sync managed configs/skills per account.
+  # 2b) Upgrade gentle-ai binary and re-sync managed configs/skills per account.
   if command -v gentle-ai &>/dev/null; then
     if ui_confirm "Upgrade & sync gentle-ai (configs + skills) for all accounts?"; then
-      ui_spin "gentle-ai upgrade..." gentle-ai upgrade || true
-      sync_gentle_ai_accounts
-      log_success "gentle-ai synced."
+      run_ai_update --upgrade || log_warn "gentle-ai update completed with errors — check output above"
+      log_success "gentle-ai update done."
     fi
   fi
 

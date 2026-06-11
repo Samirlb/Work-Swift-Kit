@@ -350,6 +350,19 @@ _run_doctor_output() {
     check_pass "~/.claude absent — no ancestor-traversal risk"
   fi
 
+  # ── Orchestrator config-dir check ────────────────────────────────────
+  # When account dirs exist but neither CLAUDE_CONFIG_DIR nor ~/.claude is present,
+  # Claude Code will find no CLAUDE.md or orchestrator markers and run without config.
+  if [[ "$_has_account_dirs" -eq 1 ]] && [[ ! -e "$_dot_claude" && ! -L "$_dot_claude" ]]; then
+    if [[ -z "${CLAUDE_CONFIG_DIR:-}" ]]; then
+      # Check if ~/.zshrc sets CLAUDE_CONFIG_DIR
+      local _zshrc="$HOME/.zshrc"
+      if ! grep -q 'CLAUDE_CONFIG_DIR' "$_zshrc" 2>/dev/null; then
+        check_warn "Claude launched outside a CLAUDE_CONFIG_DIR wrapper loads NO config (no CLAUDE.md/orchestrator) — re-run: wsk accounts"
+      fi
+    fi
+  fi
+
   # ── AI frameworks (per account) ──────────────────────────────────────
   ui_subhead "AI frameworks (per account)"
 
