@@ -48,6 +48,7 @@ if [[ "$WSK_DIR" == /tmp/* ]] || [[ "$WSK_DIR" == /var/folders/* ]]; then
 fi
 
 source "${WSK_DIR}/lib/ui.sh"
+source "${WSK_DIR}/lib/preflight.sh"
 source "${WSK_DIR}/lib/accounts.sh"
 source "${WSK_DIR}/lib/os.sh"
 source "${WSK_DIR}/lib/node.sh"
@@ -94,6 +95,7 @@ run_accounts() {
 
 run_relink() {
   load_accounts
+  preflight_accounts || return 0
   render_all
   link_dotfiles
   log_success "Dotfiles re-linked."
@@ -101,6 +103,7 @@ run_relink() {
 
 run_sync() {
   load_accounts
+  preflight_accounts || return 0
   sync_gentle_ai_accounts
 }
 

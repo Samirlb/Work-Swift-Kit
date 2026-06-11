@@ -281,5 +281,6 @@ _run_doctor_output() {
 }
 
 run_doctor() {
+  preflight_accounts || return 0
   _run_doctor_output
 }
