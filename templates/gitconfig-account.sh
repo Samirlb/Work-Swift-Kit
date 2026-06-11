@@ -3,7 +3,7 @@ set -euo pipefail
 
 render_gitconfig_account() {
   for acct in "${WSK_ACCOUNTS[@]}"; do
-    local env_file="${WSK_DIR}/accounts/${acct}.env"
+    local env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
 
     local git_name git_email github_user ssh_key
     git_name=$(grep '^GIT_NAME=' "$env_file" | cut -d= -f2-)

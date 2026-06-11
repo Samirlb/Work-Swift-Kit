@@ -16,7 +16,7 @@ _fix_git_resolve_acct() {
   local acct projects_dir env_file
 
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     [[ -f "$env_file" ]] || continue
     projects_dir="$(grep '^PROJECTS_DIR=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     [[ -z "$projects_dir" ]] && continue
@@ -79,7 +79,7 @@ run_fix_git() {
 
   local acct env_file projects_dir
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     [[ -f "$env_file" ]] || continue
     projects_dir="$(grep '^PROJECTS_DIR=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     [[ -z "$projects_dir" ]] && continue

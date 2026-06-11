@@ -375,7 +375,7 @@ _run_doctor_output() {
 
   local acct env_file framework
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     framework=""
     if [[ -f "$env_file" ]]; then
       framework="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
@@ -460,7 +460,7 @@ _run_doctor_output() {
   ui_subhead "Skills (per account)"
   local skill skills_dir
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     framework=""
     if [[ -f "$env_file" ]]; then
       framework="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
@@ -495,7 +495,7 @@ _run_doctor_output() {
     for acct in "${WSK_ACCOUNTS[@]}"; do
       check_pass "account: $acct"
       _check_link "$HOME/.gitconfig-${acct}"
-      acct_fw=$(grep '^AI_FRAMEWORK=' "${WSK_DIR}/accounts/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
+      acct_fw=$(grep '^AI_FRAMEWORK=' "${WSK_ACCOUNTS_DIR}/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
       if [[ "$acct_fw" == "gentle-ai" ]]; then
         if [[ -f "$HOME/.claude-${acct}/CLAUDE.md" ]]; then
           check_pass "CLAUDE.md: managed by gentle-ai"
@@ -514,7 +514,7 @@ _run_doctor_output() {
       else
         _check_link "$HOME/.claude-${acct}/CLAUDE.md"
       fi
-      ssh_key=$(grep '^WSK_SSH_KEY=' "${WSK_DIR}/accounts/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
+      ssh_key=$(grep '^WSK_SSH_KEY=' "${WSK_ACCOUNTS_DIR}/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
       if [[ -z "$ssh_key" ]]; then
         check_warn "ssh key: not configured — run: wsk accounts"
       elif [[ -f "$HOME/.ssh/${ssh_key}" ]]; then
@@ -529,8 +529,8 @@ _run_doctor_output() {
   ui_subhead "SSH agent"
   local _sa_acct _sa_key _sa_gh_user
   for _sa_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    _sa_key="$(grep '^WSK_SSH_KEY=' "${WSK_DIR}/accounts/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"
-    _sa_gh_user="$(grep '^GIT_GITHUB_USER=' "${WSK_DIR}/accounts/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"
+    _sa_key="$(grep '^WSK_SSH_KEY=' "${WSK_ACCOUNTS_DIR}/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"
+    _sa_gh_user="$(grep '^GIT_GITHUB_USER=' "${WSK_ACCOUNTS_DIR}/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"
     if [[ -n "$_sa_key" ]]; then
       _audit_ssh_agent "$_sa_acct" "$_sa_key"
       if [[ -n "$_sa_gh_user" ]]; then
@@ -550,7 +550,7 @@ _run_doctor_output() {
   ui_subhead "git / gh identity"
   local gh_user projects_dir env_file
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     gh_user="$(grep '^GIT_GITHUB_USER=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     projects_dir="$(grep '^PROJECTS_DIR=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
 

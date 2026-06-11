@@ -5,7 +5,7 @@ load "../helpers/setup"
 setup() {
   cleanup_test_artifacts
   init_test_home
-  mkdir -p "${WSK_DIR}/stow" "${WSK_DIR}/accounts" "$HOME/.ssh"
+  mkdir -p "${WSK_DIR}/stow" "${WSK_ACCOUNTS_DIR}" "$HOME/.ssh"
 
   WSK_ACCOUNTS=()
   export WSK_ACCOUNTS

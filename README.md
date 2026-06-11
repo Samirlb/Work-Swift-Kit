@@ -264,6 +264,8 @@ timeout), set `WSK_SSH_CHECK=1` before running `wsk doctor`.
 
 All install steps are idempotent. `gentle-ai` accounts skip CLAUDE.md in stow (gentle-ai owns that file). Conflicting real files are backed up as `{file}.bak.YYYYMMDD-HHMMSS` before stow runs.
 
+**Account state** (the `*.env` files that hold your configured accounts) is stored at `~/.config/wsk/accounts` — separate from the WSK installation directory. This means account configuration survives a `brew upgrade` without needing to be re-entered.
+
 ## Troubleshooting
 
 ### Permission denied (publickey)

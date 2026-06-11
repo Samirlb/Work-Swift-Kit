@@ -133,7 +133,7 @@ No hardcoded paths here."
 @test "patch runs after every sync — _patch_gentle_ai_commands is called per account in sync flow" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
   # Seed AI_FRAMEWORK=gentle-ai
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
 
   local cfg_dir="$HOME/.claude-work"
   mkdir -p "$cfg_dir/commands"

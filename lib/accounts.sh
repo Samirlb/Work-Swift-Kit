@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Stable state dir — survives brew upgrades. Honour caller override, then XDG, then default.
+WSK_STATE_DIR="${WSK_STATE_DIR:-${HOME}/.config/wsk}"
+WSK_ACCOUNTS_DIR="${WSK_ACCOUNTS_DIR:-${WSK_STATE_DIR}/accounts}"
+
 WSK_ACCOUNTS=()
 
 # ---------------------------------------------------------------------------
@@ -72,13 +76,33 @@ _ssh_add_key() {
   return 0
 }
 
-# Populate WSK_ACCOUNTS from previously saved accounts/*.env (no prompts).
-# Needed by relink / doctor / update, which run without re-collecting input.
+# Populate WSK_ACCOUNTS from previously saved account env files (no prompts).
+# Reads from WSK_ACCOUNTS_DIR (stable, survives brew upgrades). On first run,
+# migrates any existing files from the legacy WSK_DIR/accounts location.
 load_accounts() {
   WSK_ACCOUNTS=()
-  [[ -d "${WSK_DIR}/accounts" ]] || return 0
+  # Ensure state dir exists
+  mkdir -p "${WSK_ACCOUNTS_DIR}"
+  # One-time idempotent migration from legacy WSK_DIR/accounts
+  if [[ -d "${WSK_DIR}/accounts" ]]; then
+    local _migrated=0
+    for _legacy_env in "${WSK_DIR}/accounts/"*.env; do
+      [[ -e "$_legacy_env" ]] || continue
+      local _bname
+      _bname="$(basename "$_legacy_env")"
+      if [[ ! -f "${WSK_ACCOUNTS_DIR}/${_bname}" ]]; then
+        cp "$_legacy_env" "${WSK_ACCOUNTS_DIR}/${_bname}"
+        _migrated=1
+      fi
+    done
+    if [[ "$_migrated" -eq 1 ]] && declare -f log_info >/dev/null 2>&1; then
+      log_info "Migrated account files from legacy ${WSK_DIR}/accounts to ${WSK_ACCOUNTS_DIR}"
+    fi
+  fi
+  # Read from stable state dir
+  [[ -d "${WSK_ACCOUNTS_DIR}" ]] || return 0
   local env_file acct_name
-  for env_file in "${WSK_DIR}/accounts/"*.env; do
+  for env_file in "${WSK_ACCOUNTS_DIR}/"*.env; do
     [[ -e "$env_file" ]] || continue
     acct_name=$(basename "$env_file" .env)
     WSK_ACCOUNTS+=("$acct_name")
@@ -103,7 +127,7 @@ _collect_single_account() {
 
   # Prefill from a previously saved account so re-runs edit existing values
   # instead of forcing blind re-entry (which invites duplicates like "Work 2").
-  local prev_env="${WSK_DIR}/accounts/${name}.env"
+  local prev_env="${WSK_ACCOUNTS_DIR}/${name}.env"
   local d_display d_git_name d_git_email d_github d_projects
   d_display="$(_account_env_get "$prev_env" DISPLAY_NAME)"
   d_git_name="$(_account_env_get "$prev_env" GIT_NAME)"
@@ -157,8 +181,8 @@ _collect_single_account() {
   local prev_framework
   prev_framework="$(_account_env_get "$prev_env" AI_FRAMEWORK)"
 
-  mkdir -p "${WSK_DIR}/accounts"
-  cat > "${WSK_DIR}/accounts/${name}.env" <<EOF
+  mkdir -p "${WSK_ACCOUNTS_DIR}"
+  cat > "${WSK_ACCOUNTS_DIR}/${name}.env" <<EOF
 ACCOUNT_NAME=${name}
 DISPLAY_NAME=${display_name}
 GIT_NAME=${git_name}
@@ -167,7 +191,7 @@ GIT_GITHUB_USER=${github_user}
 PROJECTS_DIR=${projects_dir}
 WSK_SSH_KEY=${ssh_key}
 EOF
-  [[ -n "$prev_framework" ]] && echo "AI_FRAMEWORK=${prev_framework}" >> "${WSK_DIR}/accounts/${name}.env"
+  [[ -n "$prev_framework" ]] && echo "AI_FRAMEWORK=${prev_framework}" >> "${WSK_ACCOUNTS_DIR}/${name}.env"
 
   log_success "Account $name saved."
 

@@ -63,7 +63,7 @@ exit 1
 STUB
   chmod +x "$ga_stub"
 
-  local env_file="${WSK_DIR}/accounts/work.env"
+  local env_file="${WSK_ACCOUNTS_DIR}/work.env"
 
   # _gentle_ai_scoped now propagates nonzero exits — absorb with || true so the
   # test body continues to the assertion below (ec-propagation is verified separately).
@@ -95,7 +95,7 @@ exit 0
 STUB
   chmod +x "$ga_stub"
 
-  local env_file="${WSK_DIR}/accounts/work.env"
+  local env_file="${WSK_ACCOUNTS_DIR}/work.env"
 
   # Simulate the install_ai_framework flow manually by calling _gentle_ai_scoped
   # and then conditionally persisting (mirrors EC-4 fix logic)
@@ -124,7 +124,7 @@ STUB
   stub_absent sd
   local no_usr_bin="${WSK_STUB_BIN}:/bin"
 
-  local env_file="${WSK_DIR}/accounts/work.env"
+  local env_file="${WSK_ACCOUNTS_DIR}/work.env"
   # Pre-seed an existing key
   printf 'AI_FRAMEWORK=old-value\n' >> "$env_file"
 

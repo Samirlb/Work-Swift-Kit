@@ -15,7 +15,7 @@ render_gitconfig() {
   fi
 
   local first_account="${WSK_ACCOUNTS[0]}"
-  local first_env="${WSK_DIR}/accounts/${first_account}.env"
+  local first_env="${WSK_ACCOUNTS_DIR}/${first_account}.env"
 
   local first_name first_email
   first_name=$(grep '^GIT_NAME=' "$first_env" | cut -d= -f2-)
@@ -80,7 +80,7 @@ EOF
 )"
 
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    local env_file="${WSK_DIR}/accounts/${acct}.env"
+    local env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     local projects_dir
     projects_dir=$(grep '^PROJECTS_DIR=' "$env_file" | cut -d= -f2-)
     wsk_content+="$(cat <<EOF

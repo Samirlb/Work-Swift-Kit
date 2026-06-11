@@ -36,7 +36,7 @@ setup_gh_accounts() {
 
   local acct_name github_user ssh_key env_file
   for acct_name in "${ordered_accounts[@]+"${ordered_accounts[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct_name}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct_name}.env"
     github_user=$(grep '^GIT_GITHUB_USER=' "$env_file" | cut -d= -f2-)
     ssh_key=$(grep '^WSK_SSH_KEY=' "$env_file" 2>/dev/null | cut -d= -f2- || true)
 

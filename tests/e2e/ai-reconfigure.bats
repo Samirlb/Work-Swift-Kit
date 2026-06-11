@@ -43,7 +43,7 @@ setup() {
   init_test_home
   export WSK_DIR
   export WSK_TEST_HOME
-  mkdir -p "${WSK_DIR}/accounts"
+  mkdir -p "${WSK_ACCOUNTS_DIR}"
 }
 
 teardown() {
@@ -57,7 +57,7 @@ teardown() {
 
 @test "reconfigure gate off — no reconfigure prompt when AI_FRAMEWORK already set" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   # Create settings.json so install step is skipped
   touch "$HOME/.claude-work/settings.json"
@@ -82,7 +82,7 @@ SPY
 
 @test "reconfigure gate on, user accepts — uninstall called BEFORE install in stub log order" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   # Create settings.json so we're in re-run state
   touch "$HOME/.claude-work/settings.json"
@@ -136,7 +136,7 @@ STUB
 
 @test "reconfigure gate on, user declines — sync-only, AI_FRAMEWORK not changed" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   touch "$HOME/.claude-work/settings.json"
 
@@ -165,7 +165,7 @@ STUB
   # uninstall should NOT have been called
   assert_stub_not_called "gentle-ai uninstall"
   # AI_FRAMEWORK should still be gentle-ai
-  grep -q '^AI_FRAMEWORK=gentle-ai' "${WSK_DIR}/accounts/work.env"
+  grep -q '^AI_FRAMEWORK=gentle-ai' "${WSK_ACCOUNTS_DIR}/work.env"
 }
 
 # ===========================================================================
@@ -209,7 +209,7 @@ STUB
 
 @test "reconfigure accepted — global state warning printed before reinstall" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   touch "$HOME/.claude-work/settings.json"
 
@@ -246,7 +246,7 @@ STUB
 
 @test "reconfigure declined (sync-only) — no global state warning printed" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   touch "$HOME/.claude-work/settings.json"
 
@@ -284,7 +284,7 @@ STUB
 
 @test "run_full_setup path — reconfigure prompt shown for accounts with AI_FRAMEWORK set" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   touch "$HOME/.claude-work/settings.json"
 
@@ -343,7 +343,7 @@ STUB
 
 @test "reconfigure accepted — rtk hook, caveman, codegraph re-wired after reconfigure" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   local cfg_dir="$HOME/.claude-work"
   mkdir -p "$cfg_dir"
 
@@ -467,7 +467,7 @@ STUB
 
 @test "reconfigure accepted — account without codegraph does NOT get codegraph added" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   local cfg_dir="$HOME/.claude-work"
   mkdir -p "$cfg_dir"
 
@@ -569,7 +569,7 @@ STUB
 
 @test "reconfigure accepted — account without caveman does NOT get caveman added" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   local cfg_dir="$HOME/.claude-work"
   mkdir -p "$cfg_dir"
 

@@ -5,7 +5,7 @@ load "../helpers/setup"
 setup() {
   cleanup_test_artifacts
   init_test_home
-  mkdir -p "${WSK_DIR}/stow" "${WSK_DIR}/accounts"
+  mkdir -p "${WSK_DIR}/stow" "${WSK_ACCOUNTS_DIR}"
 
   seed_account "work" "Work" "Alice Work" "alice@work.com" "alicework" "$HOME/Documents/Work" "id_ed25519_work"
   seed_account "personal" "Personal" "Alice" "alice@personal.com" "alicepersonal" "$HOME/Documents/Personal" "id_ed25519_personal"

@@ -52,7 +52,7 @@ setup() {
   init_test_home
   export WSK_DIR
   export WSK_TEST_HOME
-  mkdir -p "${WSK_DIR}/accounts"
+  mkdir -p "${WSK_ACCOUNTS_DIR:-${WSK_DIR}/accounts}"
 }
 
 teardown() {

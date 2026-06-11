@@ -35,9 +35,9 @@ EOF
   local acct_list="" acct_dir_list="" acct_gh_list="" _pd _gh
   for acct in "${WSK_ACCOUNTS[@]}"; do
     acct_list+="\"${acct}\" "
-    _pd=$(grep '^PROJECTS_DIR=' "${WSK_DIR}/accounts/${acct}.env" | cut -d= -f2-)
+    _pd=$(grep '^PROJECTS_DIR=' "${WSK_ACCOUNTS_DIR}/${acct}.env" | cut -d= -f2-)
     [[ -n "$_pd" ]] && acct_dir_list+="\"${acct}:${_pd}\" "
-    _gh=$(grep '^GIT_GITHUB_USER=' "${WSK_DIR}/accounts/${acct}.env" | cut -d= -f2-)
+    _gh=$(grep '^GIT_GITHUB_USER=' "${WSK_ACCOUNTS_DIR}/${acct}.env" | cut -d= -f2-)
     [[ -n "$_gh" ]] && acct_gh_list+="\"${acct}:${_gh}\" "
   done
 
@@ -165,7 +165,7 @@ function _wsk_switch_profile() {
 EOF
 
   for acct in "${WSK_ACCOUNTS[@]}"; do
-    local env_file="${WSK_DIR}/accounts/${acct}.env"
+    local env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
 
     local projects_dir github_user
     projects_dir=$(grep '^PROJECTS_DIR=' "$env_file" | cut -d= -f2-)

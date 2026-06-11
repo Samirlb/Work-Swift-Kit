@@ -104,7 +104,7 @@ link_dotfiles() {
   # set -u + bash 3.2 safe: empty/unset array would error on plain expansion
   for acct in ${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}; do
     targets+=("$HOME/.gitconfig-${acct}")
-    local _fw; _fw=$(grep '^AI_FRAMEWORK=' "${WSK_DIR}/accounts/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
+    local _fw; _fw=$(grep '^AI_FRAMEWORK=' "${WSK_ACCOUNTS_DIR}/${acct}.env" 2>/dev/null | cut -d= -f2- || true)
     [[ "$_fw" != "gentle-ai" ]] && targets+=("$HOME/.claude-${acct}/CLAUDE.md")
   done
 

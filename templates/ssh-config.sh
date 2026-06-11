@@ -8,7 +8,7 @@ render_ssh_config() {
   : > "$out"
 
   for acct in "${WSK_ACCOUNTS[@]}"; do
-    local env_file="${WSK_DIR}/accounts/${acct}.env"
+    local env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     local ssh_key
     ssh_key=$(grep '^WSK_SSH_KEY=' "$env_file" | cut -d= -f2-)
 

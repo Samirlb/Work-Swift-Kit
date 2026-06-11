@@ -145,3 +145,9 @@ through `wsk sync` instead. This prevents a raw `gentle-ai sync` from recreating
 
 All other `gentle-ai` subcommands (e.g. `gentle-ai --version`) pass straight
 through to the real binary.
+
+---
+
+## Brew upgrade safety
+
+The stow output directory (`${WSK_DIR}/stow`) is regenerable — run `wsk relink` to recreate it after a brew upgrade.

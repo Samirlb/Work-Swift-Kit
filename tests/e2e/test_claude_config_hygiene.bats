@@ -71,7 +71,7 @@ setup() {
   WSK_ACCOUNTS=()
   export WSK_ACCOUNTS
 
-  mkdir -p "${WSK_DIR}/accounts"
+  mkdir -p "${WSK_ACCOUNTS_DIR}"
 }
 
 teardown() {
@@ -238,7 +238,7 @@ EOF
   local log_file="$WSK_TEST_HOME/fix1.log"
   : > "$log_file"
   seed_account "work" "Work" "Test" "t@t.com" "t" "$WSK_TEST_HOME/Work" "id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$WSK_TEST_HOME/.claude-work"
   echo "# CLAUDE" > "$WSK_TEST_HOME/.claude-work/CLAUDE.md"
   ln -sfn "$WSK_TEST_HOME/.claude-work" "$WSK_TEST_HOME/.claude"
@@ -258,7 +258,7 @@ EOF
   local log_file="$WSK_TEST_HOME/fix2.log"
   : > "$log_file"
   seed_account "work" "Work" "Test" "t@t.com" "t" "$WSK_TEST_HOME/Work" "id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$WSK_TEST_HOME/.claude-work"
   echo "# CLAUDE" > "$WSK_TEST_HOME/.claude-work/CLAUDE.md"
   # Real directory (not a symlink)
@@ -289,7 +289,7 @@ EOF
   local log_file="$WSK_TEST_HOME/fix3.log"
   : > "$log_file"
   seed_account "work" "Work" "Test" "t@t.com" "t" "$WSK_TEST_HOME/Work" "id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$WSK_TEST_HOME/.claude-work"
   echo "# CLAUDE" > "$WSK_TEST_HOME/.claude-work/CLAUDE.md"
   # ~/.claude intentionally absent
@@ -306,7 +306,7 @@ EOF
   local log_file="$WSK_TEST_HOME/fix4.log"
   : > "$log_file"
   seed_account "work" "Work" "Test" "t@t.com" "t" "$WSK_TEST_HOME/Work" "id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$WSK_TEST_HOME/.claude-work"
   echo "# CLAUDE" > "$WSK_TEST_HOME/.claude-work/CLAUDE.md"
 
@@ -329,8 +329,8 @@ EOF
   : > "$log_file"
   seed_account "work" "Work" "Test" "t@t.com" "t" "$WSK_TEST_HOME/Work" "id_work"
   seed_account "personal" "Personal" "Test" "t@p.com" "tp" "$WSK_TEST_HOME/Personal" "id_personal"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/personal.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/personal.env"
 
   mkdir -p "$WSK_TEST_HOME/.claude-work"
   echo "# CLAUDE" > "$WSK_TEST_HOME/.claude-work/CLAUDE.md"
@@ -351,7 +351,7 @@ EOF
   local log_file="$WSK_TEST_HOME/fix6.log"
   : > "$log_file"
   seed_account "work" "Work" "Test" "t@t.com" "t" "$WSK_TEST_HOME/Work" "id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$WSK_TEST_HOME/.claude-work"
   echo "# CLAUDE" > "$WSK_TEST_HOME/.claude-work/CLAUDE.md"
 
@@ -410,7 +410,7 @@ EOF
 @test "Doctor: check_warn when CLAUDE.md references @RTK.md but RTK.md absent" {
   seed_account "work" "Work" "Jane" "j@w.com" "jane" "$HOME/projects" "id_work"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   printf '# CLAUDE\n@RTK.md\n' > "$HOME/.claude-work/CLAUDE.md"
   # RTK.md intentionally absent
@@ -434,7 +434,7 @@ EOF
 @test "Doctor: check_warn when CLAUDE.md missing minimalism block markers" {
   seed_account "work" "Work" "Jane" "j@w.com" "jane" "$HOME/projects" "id_work"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   # CLAUDE.md without the minimalism markers
   echo "# CLAUDE" > "$HOME/.claude-work/CLAUDE.md"
@@ -454,7 +454,7 @@ EOF
 @test "Doctor: no minimalism-block warn when block present in CLAUDE.md" {
   seed_account "work" "Work" "Jane" "j@w.com" "jane" "$HOME/projects" "id_work"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
   cat > "$HOME/.claude-work/CLAUDE.md" <<'EOF'
 # CLAUDE

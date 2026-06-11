@@ -46,6 +46,8 @@ init_test_home() {
   # the real repo.
   WSK_DIR="$WSK_TEST_HOME/wsk"
   export WSK_DIR
+  WSK_ACCOUNTS_DIR="$WSK_TEST_HOME/.config/wsk/accounts"
+  export WSK_ACCOUNTS_DIR
   mkdir -p "$WSK_DIR"
   cp -R "$WSK_REPO_DIR/lib" "$WSK_REPO_DIR/templates" "$WSK_DIR/"
   [[ -d "$WSK_REPO_DIR/tools" ]] && cp -R "$WSK_REPO_DIR/tools" "$WSK_DIR/"
@@ -431,8 +433,8 @@ export -f ssh-keygen
 # ---------------------------------------------------------------------------
 seed_account() {
   local name="$1" display="$2" git_name="$3" git_email="$4" github_user="$5" projects_dir="$6" ssh_key="$7"
-  mkdir -p "${WSK_DIR}/accounts"
-  cat > "${WSK_DIR}/accounts/${name}.env" <<EOF
+  mkdir -p "${WSK_ACCOUNTS_DIR:-${WSK_DIR}/accounts}"
+  cat > "${WSK_ACCOUNTS_DIR:-${WSK_DIR}/accounts}/${name}.env" <<EOF
 ACCOUNT_NAME=${name}
 DISPLAY_NAME=${display}
 GIT_NAME=${git_name}
@@ -447,6 +449,7 @@ cleanup_test_artifacts() {
   # Hard guard: only ever delete inside the sandbox copy, never the real repo.
   if [[ -n "${WSK_TEST_HOME:-}" && "$WSK_DIR" == "$WSK_TEST_HOME"/* ]]; then
     rm -rf "${WSK_DIR}/stow" "${WSK_DIR}/accounts"
+    [[ -n "${WSK_ACCOUNTS_DIR:-}" ]] && rm -rf "${WSK_ACCOUNTS_DIR}"
   fi
 }
 

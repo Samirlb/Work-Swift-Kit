@@ -205,8 +205,8 @@ teardown() {
       link_dotfiles
     }
 
-    # No accounts — WSK_DIR has empty accounts dir
-    mkdir -p '${WSK_DIR}/accounts'
+    # No accounts — WSK_ACCOUNTS_DIR is empty (WSK_ACCOUNTS_DIR set by sourcing accounts.sh)
+    export WSK_ACCOUNTS_DIR="${WSK_TEST_HOME}/.config/wsk/accounts"
 
     run_relink 2>&1
   " 2>&1)

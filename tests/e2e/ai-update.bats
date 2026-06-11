@@ -42,7 +42,7 @@ setup() {
   init_test_home
   export WSK_DIR
   export WSK_TEST_HOME
-  mkdir -p "${WSK_DIR}/accounts"
+  mkdir -p "${WSK_ACCOUNTS_DIR}"
 }
 
 teardown() {
@@ -57,8 +57,8 @@ teardown() {
 @test "ai-update: all accounts succeed — exit 0" {
   seed_account "work"     "Work"     "Jane" "jane@work.com"     "janew"  "$HOME/projects/work"     "id_work"
   seed_account "personal" "Personal" "Jane" "jane@personal.com" "janep"  "$HOME/projects/personal" "id_personal"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/personal.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/personal.env"
   mkdir -p "$HOME/.claude-work" "$HOME/.claude-personal"
 
   local rc=0
@@ -75,9 +75,9 @@ teardown() {
   seed_account "work"     "Work"     "Jane" "jane@work.com"     "janew"  "$HOME/projects/work"     "id_work"
   seed_account "personal" "Personal" "Jane" "jane@personal.com" "janep"  "$HOME/projects/personal" "id_personal"
   seed_account "client"   "Client"   "Jane" "jane@client.com"   "janec"  "$HOME/projects/client"   "id_client"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/personal.env"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/client.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/personal.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/client.env"
   mkdir -p "$HOME/.claude-work" "$HOME/.claude-personal" "$HOME/.claude-client"
 
   # Make gentle-ai fail for 'work' only
@@ -120,7 +120,7 @@ STUB
 
 @test "ai-update: --upgrade flag — brew upgrade gentle-ai called, gentle-ai upgrade never called" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
 
   # brew list gentle-ai must return 0 so brew upgrade path is taken
@@ -141,7 +141,7 @@ STUB
 
 @test "ai-update: --upgrade without brew package — logs hint, skips upgrade, still syncs" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
 
   # brew list fails for gentle-ai (not a brew install)
@@ -170,7 +170,7 @@ STUB
 
 @test "ai-update: brew upgrade fails — sync aborted, exit nonzero" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
-  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_ACCOUNTS_DIR}/work.env"
   mkdir -p "$HOME/.claude-work"
 
   # brew list succeeds but brew upgrade fails

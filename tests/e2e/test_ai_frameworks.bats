@@ -24,7 +24,7 @@ setup() {
   export WSK_ACCOUNTS
 
   # Seed default accounts dir
-  mkdir -p "${WSK_DIR}/accounts"
+  mkdir -p "${WSK_ACCOUNTS_DIR}"
 }
 
 teardown() {
@@ -60,7 +60,7 @@ _run_iso_fw() {
 # ---------------------------------------------------------------------------
 
 @test "_persist_account_kv: key absent — appended to env file" {
-  local env_file="${WSK_DIR}/accounts/work.env"
+  local env_file="${WSK_ACCOUNTS_DIR}/work.env"
   seed_account "work" "Work" "Test User" "test@example.com" "testuser" "${HOME}/Work" "id_ed25519_work"
 
   _persist_account_kv "$env_file" AI_FRAMEWORK gentle-ai
@@ -69,7 +69,7 @@ _run_iso_fw() {
 }
 
 @test "_persist_account_kv: key present — updated in-place, not duplicated" {
-  local env_file="${WSK_DIR}/accounts/work.env"
+  local env_file="${WSK_ACCOUNTS_DIR}/work.env"
   seed_account "work" "Work" "Test User" "test@example.com" "testuser" "${HOME}/Work" "id_ed25519_work"
   echo "AI_FRAMEWORK=gsd" >> "$env_file"
 
@@ -130,7 +130,7 @@ _run_iso_fw() {
   # per-account cfg_dir created (CLAUDE_CONFIG_DIR=~/.claude-work)
   [[ -d "$WSK_TEST_HOME/.claude-work" ]]
   # env file persisted
-  grep -q "^AI_FRAMEWORK=gentle-ai" "${WSK_DIR}/accounts/work.env"
+  grep -q "^AI_FRAMEWORK=gentle-ai" "${WSK_ACCOUNTS_DIR}/work.env"
 }
 
 # ---------------------------------------------------------------------------
@@ -148,7 +148,7 @@ _run_iso_fw() {
     "install_ai_framework personal"
 
   grep -q "@opengsd/get-shit-done-redux@latest" "$log_file"
-  grep -q "^AI_FRAMEWORK=gsd" "${WSK_DIR}/accounts/personal.env"
+  grep -q "^AI_FRAMEWORK=gsd" "${WSK_ACCOUNTS_DIR}/personal.env"
 }
 
 @test "install_ai_framework: gsd npx-fail — exits nonzero, no fallback to get-shit-done-cc" {
@@ -184,7 +184,7 @@ _run_iso_fw() {
   grep -q "github.com/obra/superpowers" "$log_file"
   [[ -d "$WSK_TEST_HOME/.claude-work/superpowers" ]]
   echo "$output" | grep -qi "plugin install"
-  grep -q "^AI_FRAMEWORK=superpowers" "${WSK_DIR}/accounts/work.env"
+  grep -q "^AI_FRAMEWORK=superpowers" "${WSK_ACCOUNTS_DIR}/work.env"
 }
 
 # ---------------------------------------------------------------------------
@@ -194,14 +194,14 @@ _run_iso_fw() {
 @test "per-account independence: work=gentle-ai, personal=gsd — env files independent, no cross-contamination" {
   seed_account "work" "Work" "Test User" "work@example.com" "workuser" "${HOME}/Work" "id_ed25519_work"
   seed_account "personal" "Personal" "Test User" "personal@example.com" "personaluser" "${HOME}/Personal" "id_ed25519_personal"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
-  echo "AI_FRAMEWORK=gsd"       >> "${WSK_DIR}/accounts/personal.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
+  echo "AI_FRAMEWORK=gsd"       >> "${WSK_ACCOUNTS_DIR}/personal.env"
 
   # Each env file must have its own value and only its own value
-  grep -q "^AI_FRAMEWORK=gentle-ai" "${WSK_DIR}/accounts/work.env"
-  grep -q "^AI_FRAMEWORK=gsd"       "${WSK_DIR}/accounts/personal.env"
-  ! grep -q "AI_FRAMEWORK=gsd"      "${WSK_DIR}/accounts/work.env"
-  ! grep -q "AI_FRAMEWORK=gentle-ai" "${WSK_DIR}/accounts/personal.env"
+  grep -q "^AI_FRAMEWORK=gentle-ai" "${WSK_ACCOUNTS_DIR}/work.env"
+  grep -q "^AI_FRAMEWORK=gsd"       "${WSK_ACCOUNTS_DIR}/personal.env"
+  ! grep -q "AI_FRAMEWORK=gsd"      "${WSK_ACCOUNTS_DIR}/work.env"
+  ! grep -q "AI_FRAMEWORK=gentle-ai" "${WSK_ACCOUNTS_DIR}/personal.env"
 }
 
 # ---------------------------------------------------------------------------
@@ -212,7 +212,7 @@ _run_iso_fw() {
   local log_file="$WSK_TEST_HOME/fw5.log"
   : > "$log_file"
   seed_account "work" "Work" "Test User" "test@example.com" "testuser" "${HOME}/Work" "id_ed25519_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
 
   _run_iso_fw "$log_file" \
     "export WSK_OS=macos WSK_PKG_MGR=brew" \
@@ -247,7 +247,7 @@ _run_iso_fw() {
   local log_file="$WSK_TEST_HOME/loop1.log"
   : > "$log_file"
   seed_account "work" "Work" "Test User" "test@example.com" "testuser" "${HOME}/Work" "id_ed25519_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   node_present
   codegraph_absent
 
@@ -263,7 +263,7 @@ _run_iso_fw() {
   local log_file="$WSK_TEST_HOME/loop2.log"
   : > "$log_file"
   seed_account "work" "Work" "Test User" "test@example.com" "testuser" "${HOME}/Work" "id_ed25519_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   node_present
   codegraph_absent
 

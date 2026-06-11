@@ -203,7 +203,7 @@ PYEOF
 # ---------------------------------------------------------------------------
 install_ai_framework() {
   local acct="$1"
-  local env_file="${WSK_DIR}/accounts/${acct}.env"
+  local env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
   local cfg_dir="${HOME}/.claude-${acct}"
 
   mkdir -p "$cfg_dir"
@@ -390,7 +390,7 @@ run_ai_for_all_accounts() {
 
     # Read persisted framework choice (set by install_ai_framework above).
     framework=""
-    local env_file="${WSK_DIR}/accounts/${acct}.env"
+    local env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     if [[ -f "$env_file" ]]; then
       framework="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     fi
@@ -510,7 +510,7 @@ sync_gentle_ai_accounts() {
 
   local acct fw env_file synced=0 _sync_fail_count=0
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     [[ "$fw" == "gentle-ai" ]] || continue
 
@@ -583,7 +583,7 @@ run_ai_update() {
 
   local acct fw env_file _fail_count=0
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     [[ "$fw" == "gentle-ai" ]] || continue
 
@@ -698,7 +698,7 @@ run_fix_claude() {
   ui_subhead "CLAUDE.md patches (per gentle-ai account)"
   local acct fw env_file acct_dir
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
-    env_file="${WSK_DIR}/accounts/${acct}.env"
+    env_file="${WSK_ACCOUNTS_DIR}/${acct}.env"
     fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
     [[ "$fw" == "gentle-ai" ]] || continue
 

@@ -198,7 +198,7 @@ teardown() {
   seed_account "work" "Work" "Jane" "jane@work.com" "jane" "$HOME/projects" "id_work"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
   # Add AI_FRAMEWORK to the env file
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   stub_present gentle-ai
 
   local out
@@ -220,7 +220,7 @@ teardown() {
 @test "Framework section: check_fail when AI_FRAMEWORK=gsd and gsd absent from PATH" {
   seed_account "personal" "Personal" "Jane" "jane@personal.com" "jane_p" "$HOME/projects" "id_personal"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_personal"
-  echo "AI_FRAMEWORK=gsd" >> "${WSK_DIR}/accounts/personal.env"
+  echo "AI_FRAMEWORK=gsd" >> "${WSK_ACCOUNTS_DIR}/personal.env"
   # gsd is not on PATH (no stub added for get-shit-done-cc or gsd)
   stub_absent codegraph
 
@@ -265,7 +265,7 @@ teardown() {
 @test "Framework section: check_pass when AI_FRAMEWORK=superpowers and dir exists" {
   seed_account "work" "Work" "Jane" "jane@work.com" "jane" "$HOME/projects" "id_work"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
-  echo "AI_FRAMEWORK=superpowers" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=superpowers" >> "${WSK_ACCOUNTS_DIR}/work.env"
   # Create the superpowers dir
   mkdir -p "$HOME/.claude-work/superpowers"
 
@@ -391,7 +391,7 @@ teardown() {
 @test "Skills section: gentle-ai account shows bundled message instead of per-skill checks" {
   seed_account "work" "Work" "Jane" "jane@work.com" "jane" "$HOME/projects" "id_work"
   mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
-  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_DIR}/accounts/work.env"
+  echo "AI_FRAMEWORK=gentle-ai" >> "${WSK_ACCOUNTS_DIR}/work.env"
   stub_present gentle-ai
 
   local out
