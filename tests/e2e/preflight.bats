@@ -235,3 +235,22 @@ teardown() {
   # No warnings expected
   echo "$out" | grep -qv 'not found'
 }
+
+# ---------------------------------------------------------------------------
+# Regression: cancelled account collection leaves WSK_ACCOUNTS unset —
+# link_dotfiles must not crash with "unbound variable" (bash 3.2 + set -u).
+# ---------------------------------------------------------------------------
+@test "stow.sh: link_dotfiles with unset WSK_ACCOUNTS does not crash" {
+  run bash -c "
+    set -euo pipefail
+    export PATH='${WSK_STUB_BIN}:/usr/bin:/bin'
+    export HOME='${WSK_TEST_HOME}'
+    export WSK_DIR='${WSK_DIR}'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/stow.sh'
+    unset WSK_ACCOUNTS
+    link_dotfiles
+  "
+  [[ "$output" != *"unbound variable"* ]]
+}

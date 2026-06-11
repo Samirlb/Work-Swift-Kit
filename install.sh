@@ -52,6 +52,10 @@ fi
 source "${WSK_DIR}/lib/ui.sh"
 source "${WSK_DIR}/lib/preflight.sh"
 source "${WSK_DIR}/lib/accounts.sh"
+
+# Always declared: bash 3.2 + set -u errors on "${WSK_ACCOUNTS[@]}" when the
+# array is unset (e.g. account collection cancelled before load_accounts ran).
+if [[ -z "${WSK_ACCOUNTS+x}" ]]; then WSK_ACCOUNTS=(); fi
 source "${WSK_DIR}/lib/os.sh"
 source "${WSK_DIR}/lib/node.sh"
 source "${WSK_DIR}/lib/claude.sh"
