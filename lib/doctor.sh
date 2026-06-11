@@ -2,6 +2,129 @@
 # shellcheck disable=SC1091
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# _audit_gh_login <acct_name> <github_user>
+# Checks that github_user appears in `gh auth status` output and whether the
+# account is currently active. Emits check_pass/check_warn/check_fail.
+# ---------------------------------------------------------------------------
+_audit_gh_login() {
+  local acct="$1" gh_user="$2"
+
+  if ! command -v gh >/dev/null 2>&1; then
+    check_warn "gh CLI not found — skipping gh identity checks"
+    return 0
+  fi
+
+  local status_output
+  status_output="$(gh auth status 2>&1 || true)"
+
+  # Exact line match: "  Logged in to github.com account <user> ..."
+  local logged_in=0 is_active=0
+
+  # Check if the user appears as a logged-in account
+  if echo "$status_output" | grep -qF "Logged in to github.com account ${gh_user}"; then
+    logged_in=1
+    # Check if active account line follows
+    if echo "$status_output" | grep -qF "Active account: true"; then
+      # The active: true line needs to be associated with our user.
+      # gh auth status groups output per account; check that the user line
+      # appears before "Active account: true" without another "Logged in" between.
+      local found_user=0
+      while IFS= read -r line; do
+        if echo "$line" | grep -qF "Logged in to github.com account ${gh_user}"; then
+          found_user=1
+        elif echo "$line" | grep -qF "Logged in to github.com account"; then
+          # A different user appeared — reset
+          found_user=0
+        fi
+        if [[ "$found_user" -eq 1 ]] && echo "$line" | grep -qF "Active account: true"; then
+          is_active=1
+          break
+        fi
+      done <<< "$status_output"
+    fi
+  fi
+
+  if [[ "$logged_in" -eq 0 ]]; then
+    check_warn "${acct}: gh not logged in for ${gh_user} — run: gh auth login"
+  elif [[ "$is_active" -eq 1 ]]; then
+    check_pass "${acct}: gh logged in as ${gh_user} (active)"
+  else
+    check_warn "${acct}: gh logged in as ${gh_user} (not active — run: gh auth switch)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# _scan_remotes <projects_dir>
+# Scans <projects_dir>/*/.git at maxdepth 2 (flat layout). Reads origin remote
+# URL for each repo. Flags HTTPS github.com remotes with a check_warn.
+# Stores found repos in _SCAN_REMOTES_REPOS (associative-free: uses parallel
+# arrays for bash 3.2 compat).
+# ---------------------------------------------------------------------------
+_scan_remotes() {
+  local projects_dir="$1"
+
+  [[ -d "$projects_dir" ]] || return 0
+
+  local found_repos=0
+
+  # Glob for <dir>/<repo>/.git — bash 3.2 safe (no nullglob needed since we
+  # check -d before acting).
+  local git_dir repo_path remote_url repo_name
+  for git_dir in "${projects_dir}"/*/.git; do
+    [[ -d "$git_dir" ]] || continue
+    repo_path="${git_dir%/.git}"
+    repo_name="${repo_path##*/}"
+    found_repos=1
+
+    remote_url="$(git -C "$repo_path" remote get-url origin 2>/dev/null || true)"
+    if [[ -z "$remote_url" ]]; then
+      continue
+    fi
+
+    if echo "$remote_url" | grep -qF "https://github.com"; then
+      check_warn "${repo_name}: remote origin is https — will use active gh account (consider: wsk fix-git)"
+    fi
+  done
+
+  if [[ "$found_repos" -eq 0 ]]; then
+    check_pass "no git repos found under ${projects_dir##"$HOME"/}"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# _audit_alias_dir <acct_name> <projects_dir>
+# Scans repos under projects_dir. For each repo with a github SSH remote,
+# checks that the remote alias matches the account name. Emits check_warn on
+# mismatch.
+# ---------------------------------------------------------------------------
+_audit_alias_dir() {
+  local acct="$1" projects_dir="$2"
+
+  [[ -d "$projects_dir" ]] || return 0
+
+  local git_dir repo_path repo_name remote_url remote_acct
+  for git_dir in "${projects_dir}"/*/.git; do
+    [[ -d "$git_dir" ]] || continue
+    repo_path="${git_dir%/.git}"
+    repo_name="${repo_path##*/}"
+
+    remote_url="$(git -C "$repo_path" remote get-url origin 2>/dev/null || true)"
+    [[ -z "$remote_url" ]] && continue
+    # Only check SSH remotes with a github-{acct} alias
+    if ! echo "$remote_url" | grep -q "git@github-"; then
+      continue
+    fi
+    # Extract alias: git@github-work:org/repo.git → work
+    remote_acct="${remote_url#git@github-}"
+    remote_acct="${remote_acct%%:*}"
+
+    if [[ "$remote_acct" != "$acct" ]]; then
+      check_warn "${repo_name}: remote alias 'github-${remote_acct}' does not match directory account '${acct}'"
+    fi
+  done
+}
+
 # Inspect a path expected to be a stow symlink into WSK_DIR/stow.
 _check_link() {
   local target="$1" short="${1/#$HOME/~}"
@@ -276,6 +399,23 @@ _run_doctor_output() {
   else
     check_fail "gh not installed"
   fi
+
+  # ── git / gh identity audit (per account) ────────────────────────────
+  ui_subhead "git / gh identity"
+  local gh_user projects_dir
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    env_file="${WSK_DIR}/accounts/${acct}.env"
+    gh_user="$(grep '^GIT_GITHUB_USER=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
+    projects_dir="$(grep '^PROJECTS_DIR=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
+
+    if [[ -n "$gh_user" ]]; then
+      _audit_gh_login "$acct" "$gh_user"
+    fi
+    if [[ -n "$projects_dir" ]]; then
+      _scan_remotes "$projects_dir"
+      _audit_alias_dir "$acct" "$projects_dir"
+    fi
+  done
 
   echo
 }
