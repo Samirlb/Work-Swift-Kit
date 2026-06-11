@@ -644,3 +644,160 @@ STUB
     return 1
   fi
 }
+
+# ===========================================================================
+# PC-1: caveman cache dir EXISTS → untouched after re-enable (no copy, no warn)
+# ===========================================================================
+
+@test "PC-1: caveman cache dir exists — untouched, no copy or warn" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  local cfg_dir="$HOME/.claude-work"
+  mkdir -p "$cfg_dir"
+
+  # settings.json WITHOUT caveman — so _enable_caveman_plugin must run and add it
+  printf '{}\n' > "$cfg_dir/settings.json"
+
+  # Create the caveman cache dir — it should be untouched (no copy from sibling)
+  local cache_dir="$cfg_dir/plugins/cache/caveman"
+  mkdir -p "$cache_dir"
+  echo "sentinel" > "$cache_dir/sentinel.txt"
+
+  # Also create a sibling account dir with a caveman cache (should NOT be copied)
+  mkdir -p "$HOME/.claude-personal/plugins/cache/caveman"
+  echo "sibling-data" > "$HOME/.claude-personal/plugins/cache/caveman/sibling.txt"
+
+  local out
+  out=$(unset -f gum brew 2>/dev/null; bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    _enable_caveman_plugin 'work' 2>&1 || true
+  " 2>&1)
+
+  # Cache dir must still have the sentinel (untouched)
+  [[ -f "$cache_dir/sentinel.txt" ]] || {
+    echo "ASSERT FAILED: sentinel.txt was removed — cache dir was touched" >&2
+    return 1
+  }
+
+  # Sibling file must NOT have been copied into work's cache
+  [[ ! -f "$cache_dir/sibling.txt" ]] || {
+    echo "ASSERT FAILED: sibling.txt was copied into work cache — should not happen when cache exists" >&2
+    return 1
+  }
+
+  # No warn about /plugin to reinstall
+  ! echo "$out" | grep -q "run /plugin to reinstall" || {
+    echo "ASSERT FAILED: unexpected warn about reinstall when cache exists" >&2
+    echo "$out" >&2
+    return 1
+  }
+}
+
+# ===========================================================================
+# PC-2: caveman cache MISSING + sibling account has it → copied from sibling
+# ===========================================================================
+
+@test "PC-2: caveman cache missing, sibling has it — copied from sibling" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  local cfg_dir="$HOME/.claude-work"
+  mkdir -p "$cfg_dir"
+  printf '{}\n' > "$cfg_dir/settings.json"
+
+  # No caveman cache for work — it's missing
+  # Create sibling account with a cache
+  local sibling_cache="$HOME/.claude-personal/plugins/cache/caveman"
+  mkdir -p "$sibling_cache"
+  echo "sibling-data" > "$sibling_cache/plugin-metadata.json"
+
+  local out
+  out=$(unset -f gum brew 2>/dev/null; bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    _enable_caveman_plugin 'work' 2>&1 || true
+  " 2>&1)
+
+  # Sibling file must have been copied into work's cache
+  local work_cache="$cfg_dir/plugins/cache/caveman"
+  [[ -f "$work_cache/plugin-metadata.json" ]] || {
+    echo "ASSERT FAILED: sibling cache was not copied to work" >&2
+    echo "work_cache contents:" >&2
+    ls -la "$work_cache" 2>&1 >&2 || echo "(dir missing)" >&2
+    echo "output:" >&2
+    echo "$out" >&2
+    return 1
+  }
+
+  # No warn about reinstall (copy succeeded)
+  ! echo "$out" | grep -q "run /plugin to reinstall" || {
+    echo "ASSERT FAILED: unexpected reinstall warn after successful copy" >&2
+    echo "$out" >&2
+    return 1
+  }
+}
+
+# ===========================================================================
+# PC-3: caveman cache MISSING + no sibling → check_warn with /plugin to reinstall
+# ===========================================================================
+
+@test "PC-3: caveman cache missing, no sibling — check_warn about /plugin to reinstall" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  local cfg_dir="$HOME/.claude-work"
+  mkdir -p "$cfg_dir"
+  printf '{}\n' > "$cfg_dir/settings.json"
+
+  # No caveman cache for work, no sibling accounts with cache
+
+  local out
+  out=$(unset -f gum brew 2>/dev/null; bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    _enable_caveman_plugin 'work' 2>&1 || true
+  " 2>&1)
+
+  # Must emit warn containing /plugin to reinstall caveman
+  echo "$out" | grep -q "run /plugin to reinstall caveman" || {
+    echo "ASSERT FAILED: expected warn about /plugin to reinstall caveman" >&2
+    echo "output:" >&2
+    echo "$out" >&2
+    return 1
+  }
+}
