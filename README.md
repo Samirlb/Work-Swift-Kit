@@ -39,19 +39,21 @@ wsk
 
 Or call any action directly:
 
-| Command         | What it does                                                                        |
-| --------------- | ----------------------------------------------------------------------------------- |
-| `wsk`           | Open the interactive menu                                                           |
-| `wsk setup`     | Full setup: accounts, packages, terminals, AI dev tools, gh auth, dotfiles          |
-| `wsk accounts`  | Configure accounts and authentication only                                          |
-| `wsk terminals` | Install terminals/editors only                                                      |
-| `wsk ai`        | Install Claude Code, AI framework, codegraph, and curated skills per account        |
-| `wsk sync`      | Run `gentle-ai sync` (configs + skills) for every gentle-ai account                  |
-| `wsk doctor`    | Scrollable health check of tools, links, accounts, and AI setup                    |
-| `wsk update`    | Update the kit, upgrade CLI tools, sync gentle-ai, optionally refresh dotfiles       |
-| `wsk relink`    | Re-render and re-link dotfiles without re-collecting accounts                       |
-| `wsk version`   | Print the current wsk version                                                       |
-| `wsk help`      | Show all available commands with descriptions                                       |
+| Command          | What it does                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------- |
+| `wsk`            | Open the interactive menu                                                           |
+| `wsk setup`      | Full setup: accounts, packages, terminals, AI dev tools, gh auth, dotfiles          |
+| `wsk accounts`   | Configure accounts and authentication only                                          |
+| `wsk terminals`  | Install terminals/editors only                                                      |
+| `wsk ai`         | Install Claude Code, AI framework, codegraph, and curated skills per account        |
+| `wsk sync`       | Run `gentle-ai sync` (configs + skills) for every gentle-ai account                 |
+| `wsk doctor`     | Scrollable health check of tools, links, accounts, AI setup, and SSH agent          |
+| `wsk update`     | Update the kit, upgrade CLI tools, sync gentle-ai, optionally refresh dotfiles      |
+| `wsk relink`     | Re-render and re-link dotfiles without re-collecting accounts                       |
+| `wsk fix-claude` | One-shot fix for Claude config hygiene (remove `~/.claude` symlink / backup)        |
+| `wsk fix-git`    | Convert HTTPS GitHub remotes to SSH aliases (dry-run by default; `--apply` to run)  |
+| `wsk version`    | Print the current wsk version                                                       |
+| `wsk help`       | Show all available commands with descriptions                                       |
 
 ### The menu
 
@@ -181,22 +183,123 @@ For `gsd` and `superpowers` accounts, 6 skills are cloned from `Gentleman-Progra
 | `claude` | Claude Code CLI |
 | `codegraph` | Codebase MCP server (optional, per account) |
 
+## `wsk fix-claude`
+
+One-shot remediation for Claude config hygiene. Removes or backs up `~/.claude` when
+per-account `~/.claude-{acct}` directories are present (prevents double-loading of
+CLAUDE.md and skills via ancestor traversal). For `gentle-ai` accounts, also copies
+`RTK.md` from sibling dirs and re-injects the Sub-Agent Context Minimalism block into
+`CLAUDE.md`. Idempotent — safe to run more than once.
+
+See [docs/claude-config-hygiene.md](docs/claude-config-hygiene.md) for full details.
+
+## `wsk fix-git`
+
+Scans your projects directory and converts HTTPS GitHub remotes to SSH aliases.
+
+```bash
+wsk fix-git          # preview changes (dry-run, no writes)
+wsk fix-git --apply  # apply the conversions
+```
+
+A repo at `https://github.com/org/repo.git` with a `work` account becomes
+`git@github-work:org/repo.git`, so pushes and pulls use the account's SSH key and
+correct `gh` identity automatically.
+
+## Per-account git identity model
+
+Each account gets its own SSH alias, gitconfig, and `gh` session:
+
+| Piece | What it does |
+|-------|-------------|
+| `~/.ssh/config` `Host github-{acct}` | Routes SSH to the account's key |
+| `~/.gitconfig-{acct}` | Stores `user.name`, `user.email`, `core.sshCommand` |
+| `~/.gitconfig` `includeIf` | Activates the right gitconfig per projects directory |
+| `gh auth switch` | Swaps the active `gh` session to the account |
+| `_wsk_gh_switch` | Injected into `claude-{acct}` / `gh-{acct}` wrappers to auto-switch `gh` context |
+
+**HTTPS remote pitfall:** git operations on repos with `https://github.com` remotes
+use whichever `gh` account is active at the time, not the account tied to the directory.
+Run `wsk fix-git --apply` to convert HTTPS remotes to the correct SSH alias, or `wsk doctor`
+to find any remaining HTTPS remotes.
+
 ## `wsk doctor`
 
 Scrollable health check (`↑↓` to scroll, `q` to return to menu). Reports on:
 
-- Dependencies, OS, and package manager
-- Node / pnpm / Claude Code
-- AI framework per account
-- Codegraph global install
-- Skills per account
-- Dotfile symlink status
-- SSH keys per account (warns if unconfigured)
-- GitHub auth status
+| Section | Checks |
+|---------|--------|
+| Dependencies | `brew`, `gum`, `stow`, `fzf`, `gettext` and base packages |
+| OS / Package manager | Detected OS and package manager |
+| Node / pnpm / Claude Code | Runtime and CLI availability |
+| Claude productivity tools | `rtk` hook, caveman plugin per account |
+| Claude config hygiene | `~/.claude` ancestor-traversal risk, CLAUDE.md markers |
+| AI frameworks | Framework installed per account |
+| Skills | Required skills present per account |
+| Dotfile links | `.gitconfig`, `.gitignore_global`, `.zshrc` block, `.ssh/config` |
+| Accounts | Per-account gitconfig, CLAUDE.md, SSH key file |
+| SSH agent | Key loaded in agent per account; `--apple-use-keychain` fix hint on macOS |
+| GitHub auth | `gh` login and active account per account |
+| git / gh identity | Active `gh` account, HTTPS remote detection, SSH alias/directory mismatch |
+
+To enable optional SSH connectivity checks (tests `git@github-{acct}` with a 5-second
+timeout), set `WSK_SSH_CHECK=1` before running `wsk doctor`.
 
 ## Re-running
 
 All install steps are idempotent. `gentle-ai` accounts skip CLAUDE.md in stow (gentle-ai owns that file). Conflicting real files are backed up as `{file}.bak.YYYYMMDD-HHMMSS` before stow runs.
+
+## Troubleshooting
+
+### Permission denied (publickey)
+
+```
+git@github-work: Permission denied (publickey).
+```
+
+**Why it happens:** The SSH key for the account exists but its passphrase is not loaded
+in the SSH agent. Non-interactive contexts (background git operations, Claude Code tool
+calls) cannot prompt for a passphrase.
+
+**One-time fix:**
+
+```bash
+# macOS — stores the passphrase in Keychain so it's available after reboot
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519_work
+
+# Linux — loads into the running agent for this session
+ssh-add ~/.ssh/id_ed25519_work
+```
+
+New setups do this automatically: WSK calls `_ssh_add_key` immediately after
+generating each ed25519 key, so the passphrase is loaded into the agent the moment
+it's typed.
+
+**Verify it worked:**
+
+```bash
+ssh -T git@github-work   # expect: "Hi <user>! You've successfully authenticated"
+```
+
+`wsk doctor` also reports whether each account's key is loaded in the agent and
+shows the exact `ssh-add` command if it is not.
+
+### CLAUDE.md loaded twice / skills appear twice
+
+`~/.claude` exists alongside `~/.claude-{acct}` directories — Claude Code loads both
+via ancestor-directory traversal. Run `wsk fix-claude` to remove the stale `~/.claude`.
+
+See [docs/claude-config-hygiene.md](docs/claude-config-hygiene.md) for the full explanation.
+
+### HTTPS remote using the wrong account
+
+A repo cloned via HTTPS (`https://github.com/org/repo`) uses whichever `gh` session
+is active, not the account tied to the projects directory. Convert it:
+
+```bash
+wsk fix-git          # preview which remotes would change
+wsk fix-git --apply  # apply
+```
 
 ## Development
 
