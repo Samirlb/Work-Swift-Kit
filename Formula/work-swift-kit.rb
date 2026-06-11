@@ -25,8 +25,8 @@ class WorkSwiftKit < Formula
       export WSK_DIR
       case "${1:-}" in
         ""|menu)                                exec bash "$WSK_DIR/install.sh" ;;
-        setup|accounts|terminals|relink|doctor|check|update|ai)
-                                                exec bash "$WSK_DIR/install.sh" "$1" ;;
+        setup|accounts|terminals|relink|doctor|check|update|ai|sync|fix-claude|fix-git)
+                                                exec bash "$WSK_DIR/install.sh" "$@" ;;
         install)                               exec bash "$WSK_DIR/install.sh" setup ;;  # back-compat
         -h|--help|help)
           echo "Usage: wsk [command]"
@@ -39,6 +39,9 @@ class WorkSwiftKit < Formula
           echo "  doctor        Check configuration (read-only health check)"
           echo "  update        Update the kit and upgrade packages"
           echo "  relink        Re-symlink dotfiles without re-collecting accounts"
+          echo "  fix-claude    Remove ~/.claude symlink and patch CLAUDE.md for all accounts"
+          echo "  fix-git       Convert https remotes to SSH aliases (dry-run by default)"
+          echo "  sync          Run gentle-ai sync for all accounts"
           ;;
         *)
           echo "Unknown command: $1" >&2

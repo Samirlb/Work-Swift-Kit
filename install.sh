@@ -19,15 +19,17 @@ bootstrap
 
 # Persist WSK to ~/.wsk and write/refresh the wsk wrapper in /usr/local/bin.
 # Called immediately when running from a temp dir (curl install) and from run_update.
+# Optional first argument overrides the output path (used by tests).
 _wsk_write_wrapper() {
-  mkdir -p /usr/local/bin
-  cat > /usr/local/bin/wsk <<'WRAPPER'
+  local dest="${1:-/usr/local/bin/wsk}"
+  mkdir -p "$(dirname "$dest")"
+  cat > "$dest" <<'WRAPPER'
 #!/usr/bin/env bash
 WSK_DIR="$HOME/.wsk"
 export WSK_DIR
 exec bash "$WSK_DIR/install.sh" "$@"
 WRAPPER
-  chmod +x /usr/local/bin/wsk
+  chmod +x "$dest"
 }
 
 _wsk_self_install() {
