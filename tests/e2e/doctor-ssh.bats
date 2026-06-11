@@ -309,3 +309,109 @@ STUB
 
   echo "$out" | grep -qi "SSH agent\|ssh agent\|agent"
 }
+
+# ===========================================================================
+# DS-11: macOS doctor run → _ssh_load_keychain (ssh-add --apple-load-keychain)
+#         called before per-account audit loop
+# ===========================================================================
+@test "DS-11: macOS doctor run — ssh-add --apple-load-keychain called before audit" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_ed25519_work"
+  touch "$HOME/.ssh/id_ed25519_work"
+
+  local key_path="$HOME/.ssh/id_ed25519_work"
+  local ssh_add_stub="$WSK_STUB_BIN/ssh-add"
+  cat > "$ssh_add_stub" <<STUB
+#!/usr/bin/env bash
+echo "ssh-add \$*" >> "\${WSK_STUB_LOG:-/dev/null}"
+if [[ "\$1" == "-l" ]]; then
+  echo "256 SHA256:AABB ${key_path} (ED25519)"
+  exit 0
+fi
+exit 0
+STUB
+  chmod +x "$ssh_add_stub"
+
+  _run_ssh_iso "
+    export WSK_OS=macos
+    load_accounts() { WSK_ACCOUNTS=(work); }
+  " "_ssh_load_keychain
+  for _sa_acct in work; do
+    _sa_key=\"id_ed25519_work\"
+    _audit_ssh_agent \"\$_sa_acct\" \"\$_sa_key\"
+  done"
+
+  # --apple-load-keychain must appear in log BEFORE the -l check
+  assert_stub_called "ssh-add --apple-load-keychain"
+
+  local load_line audit_line
+  load_line="$(grep -n 'apple-load-keychain' "$WSK_STUB_LOG" | head -1 | cut -d: -f1)"
+  audit_line="$(grep -n 'ssh-add -l' "$WSK_STUB_LOG" | head -1 | cut -d: -f1)"
+  if [[ -z "$load_line" || -z "$audit_line" ]]; then
+    echo "ASSERT FAILED: load_line='${load_line}' audit_line='${audit_line}'" >&2
+    cat "$WSK_STUB_LOG" >&2
+    return 1
+  fi
+  if [[ "$load_line" -ge "$audit_line" ]]; then
+    echo "ASSERT FAILED: --apple-load-keychain (line ${load_line}) must precede -l check (line ${audit_line})" >&2
+    cat "$WSK_STUB_LOG" >&2
+    return 1
+  fi
+}
+
+# ===========================================================================
+# DS-12: key NOT in agent initially but loaded by --apple-load-keychain
+#         → doctor emits check_pass (not check_warn)
+# ===========================================================================
+@test "DS-12: key keychained, loaded by _ssh_load_keychain before audit — doctor emits check_pass" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_ed25519_work"
+  touch "$HOME/.ssh/id_ed25519_work"
+
+  local key_path="$HOME/.ssh/id_ed25519_work"
+
+  # Simulate: first call is --apple-load-keychain (succeeds), next -l returns key loaded.
+  # The stub tracks state via a counter in a temp file.
+  local state_file="$WSK_TEST_HOME/stub-state"
+  printf '0\n' > "$state_file"
+
+  local ssh_add_stub="$WSK_STUB_BIN/ssh-add"
+  cat > "$ssh_add_stub" <<STUB
+#!/usr/bin/env bash
+echo "ssh-add \$*" >> "\${WSK_STUB_LOG:-/dev/null}"
+if [[ "\$1" == "--apple-load-keychain" ]]; then
+  # Mark keys as loaded after keychain load
+  printf '1\n' > "${state_file}"
+  exit 0
+fi
+if [[ "\$1" == "-l" ]]; then
+  loaded=\$(cat "${state_file}" 2>/dev/null || echo 0)
+  if [[ "\$loaded" == "1" ]]; then
+    echo "256 SHA256:AABB ${key_path} (ED25519)"
+    exit 0
+  else
+    echo "The agent has no identities."
+    exit 1
+  fi
+fi
+exit 0
+STUB
+  chmod +x "$ssh_add_stub"
+
+  local out
+  out=$(_run_ssh_iso "
+    export WSK_OS=macos
+  " "_ssh_load_keychain
+  _audit_ssh_agent work id_ed25519_work")
+
+  # Doctor must emit check_pass (key is loaded after keychain load)
+  echo "$out" | grep -qi "loaded\|agent\|pass\|✓" || {
+    echo "ASSERT FAILED: expected check_pass for key loaded via keychain" >&2
+    echo "$out" >&2
+    return 1
+  }
+  # Must NOT emit check_warn about not loaded
+  ! echo "$out" | grep -qi "not loaded\|not in agent" || {
+    echo "ASSERT FAILED: unexpected check_warn — key should be loaded after _ssh_load_keychain" >&2
+    echo "$out" >&2
+    return 1
+  }
+}

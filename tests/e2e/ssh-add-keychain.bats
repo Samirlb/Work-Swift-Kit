@@ -238,3 +238,41 @@ STUB
 
   assert_stub_called "ssh-add"
 }
+
+# ---------------------------------------------------------------------------
+# KL-1: macOS + _ssh_load_keychain → ssh-add --apple-load-keychain invoked once
+# ---------------------------------------------------------------------------
+@test "KL-1: macOS _ssh_load_keychain — calls ssh-add --apple-load-keychain once" {
+  local ssh_add_stub="$WSK_STUB_BIN/ssh-add"
+  cat > "$ssh_add_stub" <<'STUB'
+#!/usr/bin/env bash
+echo "ssh-add $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$ssh_add_stub"
+
+  _run_add_iso "
+    export WSK_OS=macos
+  " "_ssh_load_keychain"
+
+  assert_stub_called "ssh-add --apple-load-keychain"
+}
+
+# ---------------------------------------------------------------------------
+# KL-2: Linux + _ssh_load_keychain → ssh-add NOT called (no-op)
+# ---------------------------------------------------------------------------
+@test "KL-2: Linux _ssh_load_keychain — ssh-add not called (no-op)" {
+  local ssh_add_stub="$WSK_STUB_BIN/ssh-add"
+  cat > "$ssh_add_stub" <<'STUB'
+#!/usr/bin/env bash
+echo "ssh-add $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$ssh_add_stub"
+
+  _run_add_iso "
+    export WSK_OS=linux
+  " "_ssh_load_keychain"
+
+  assert_stub_not_called "ssh-add"
+}
