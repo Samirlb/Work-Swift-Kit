@@ -80,7 +80,7 @@ SPY
 # Scenario 2: gate on, user accepts — scoped uninstall then install, AI_FRAMEWORK updated
 # ===========================================================================
 
-@test "reconfigure gate on, user accepts — uninstall then install called in order" {
+@test "reconfigure gate on, user accepts — uninstall called BEFORE install in stub log order" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
   printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
   mkdir -p "$HOME/.claude-work"
@@ -109,8 +109,25 @@ STUB
 
   _run_reconfigure_iso "export WSK_AI_RECONFIGURE=1" "work"
 
-  # gentle-ai uninstall must have been called before install
+  # Assert: uninstall was called
   assert_stub_called "gentle-ai uninstall"
+  # Assert: install was called after uninstall
+  assert_stub_called "gentle-ai install"
+
+  # Assert ORDER: uninstall line number < install line number in the log
+  local uninstall_line install_line
+  uninstall_line="$(grep -n "gentle-ai uninstall" "$WSK_STUB_LOG" | head -1 | cut -d: -f1)"
+  install_line="$(grep -n "gentle-ai install" "$WSK_STUB_LOG" | head -1 | cut -d: -f1)"
+  if [[ -z "$uninstall_line" || -z "$install_line" ]]; then
+    echo "ASSERT FAILED: uninstall_line='${uninstall_line}' install_line='${install_line}'" >&2
+    cat "$WSK_STUB_LOG" >&2
+    return 1
+  fi
+  if [[ "$uninstall_line" -ge "$install_line" ]]; then
+    echo "ASSERT FAILED: uninstall (line ${uninstall_line}) must precede install (line ${install_line})" >&2
+    cat "$WSK_STUB_LOG" >&2
+    return 1
+  fi
 }
 
 # ===========================================================================
@@ -258,4 +275,63 @@ STUB
 
   # No global state warning should be printed for sync-only path
   ! echo "$output" | grep -qi "gentle-ai/state.json\|ALL account"
+}
+
+# ===========================================================================
+# Scenario 7: run_full_setup path — reconfigure prompt shown for accounts
+#              with AI_FRAMEWORK already set (WSK_AI_RECONFIGURE=1 set there too)
+# ===========================================================================
+
+@test "run_full_setup path — reconfigure prompt shown for accounts with AI_FRAMEWORK set" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  mkdir -p "$HOME/.claude-work"
+  touch "$HOME/.claude-work/settings.json"
+
+  # gentle-ai stub
+  cat > "$WSK_STUB_BIN/gentle-ai" <<'STUB'
+#!/usr/bin/env bash
+echo "gentle-ai $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/gentle-ai"
+
+  # gum stub: all confirms decline to keep test minimal; choose returns gentle-ai
+  cat > "$WSK_STUB_BIN/gum" <<'STUB'
+#!/usr/bin/env bash
+echo "gum $*" >> "${WSK_STUB_LOG:-/dev/null}"
+case "$1" in
+  confirm) exit 1 ;;
+  choose)  echo "gentle-ai" ;;
+  *)       exit 0 ;;
+esac
+STUB
+  chmod +x "$WSK_STUB_BIN/gum"
+
+  # Simulate the run_full_setup path by calling run_ai_for_all_accounts with
+  # WSK_AI_RECONFIGURE=1 — this is what run_full_setup must do after the fix.
+  unset -f gum brew 2>/dev/null || true
+  bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_STUB_BIN='$WSK_STUB_BIN'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    export WSK_ACCOUNTS=(work)
+    export WSK_AI_RECONFIGURE=1
+
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/node.sh'
+    source '${WSK_DIR}/lib/claude.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/frameworks.sh'
+
+    run_ai_for_all_accounts 2>&1 || true
+  " 2>&1
+
+  # gum confirm must have been called with "Reconfigure"
+  assert_stub_called "Reconfigure"
 }

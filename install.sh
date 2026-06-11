@@ -82,7 +82,9 @@ run_full_setup() {
   if ui_confirm "Install Caveman (response token compression for Claude)?"; then
     install_caveman
   fi
+  export WSK_AI_RECONFIGURE=1
   run_ai_for_all_accounts
+  unset WSK_AI_RECONFIGURE
   setup_gh_accounts
   render_all
   link_dotfiles
