@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
+# gitconfig.sh — Render the WSK-managed section of stow/.gitconfig.
+# Uses managed-section markers (mirrors inject_zshrc_block in lib/stow.sh).
+# Content outside the markers is preserved verbatim.
 set -euo pipefail
 
 render_gitconfig() {
+  # Bail early if no accounts configured (bash 3.2 safe array check)
+  local count=0
+  if [[ -n "${WSK_ACCOUNTS+x}" ]]; then
+    count="${#WSK_ACCOUNTS[@]}"
+  fi
+  if [[ "$count" -eq 0 ]]; then
+    return 0
+  fi
+
   local first_account="${WSK_ACCOUNTS[0]}"
   local first_env="${WSK_DIR}/accounts/${first_account}.env"
 
@@ -10,8 +22,28 @@ render_gitconfig() {
   first_email=$(grep '^GIT_EMAIL=' "$first_env" | cut -d= -f2-)
 
   local out="${WSK_DIR}/stow/.gitconfig"
+  local begin="# WSK:BEGIN"
+  local end="# WSK:END"
 
-  cat > "$out" <<EOF
+  mkdir -p "${WSK_DIR}/stow"
+
+  # ── Legacy migration ──────────────────────────────────────────────────
+  # If the file exists but has no managed markers it is a legacy fully-rendered
+  # gitconfig. Back it up and let the strip-and-reappend logic below produce a
+  # fresh managed-section file. Any content outside the not-yet-existing markers
+  # (i.e. the whole file) will be preserved before the new managed section.
+  if [[ -f "$out" ]] && ! grep -qF "$begin" "$out" 2>/dev/null; then
+    local backup
+    backup="${out}.bak.$(date +%Y%m%d-%H%M%S)"
+    cp "$out" "$backup"
+    log_info "gitconfig: legacy file backed up to ${backup##*/}"
+    # Leave the file in place — the awk below will keep all its content (since
+    # there are no markers to strip) and then append the fresh WSK section.
+  fi
+
+  # ── Build the new WSK-managed content block ───────────────────────────
+  local wsk_content
+  wsk_content="$(cat <<EOF
 [user]
 	name = ${first_name}
 	email = ${first_email}
@@ -32,16 +64,39 @@ render_gitconfig() {
 	lg = log --oneline --graph --decorate --all
 
 EOF
+)"
 
-  for acct in "${WSK_ACCOUNTS[@]}"; do
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     local env_file="${WSK_DIR}/accounts/${acct}.env"
     local projects_dir
     projects_dir=$(grep '^PROJECTS_DIR=' "$env_file" | cut -d= -f2-)
-
-    cat >> "$out" <<EOF
+    wsk_content+="$(cat <<EOF
 [includeIf "gitdir:${projects_dir}/"]
 	path = ~/.gitconfig-${acct}
 
 EOF
+)"
   done
+
+  # ── Strip old managed section; reappend fresh one ─────────────────────
+  # Mirror the awk splice from lib/stow.sh:inject_zshrc_block (lines 78-89).
+  [[ -e "$out" ]] || touch "$out"
+
+  local tmp
+  tmp="$(mktemp)"
+
+  awk -v b="$begin" -v e="$end" '
+    $0==b {skip=1; next}
+    $0==e {skip=0; next}
+    !skip {print}
+  ' "$out" > "$tmp"
+
+  {
+    printf '%s\n' "$begin"
+    printf '# Managed by Work-Swift-Kit — edits between these markers are overwritten.\n'
+    printf '%s' "$wsk_content"
+    printf '%s\n' "$end"
+  } >> "$tmp"
+
+  mv "$tmp" "$out"
 }
