@@ -3,6 +3,75 @@ set -euo pipefail
 
 WSK_ACCOUNTS=()
 
+# ---------------------------------------------------------------------------
+# _ssh_add_key <key_path>
+# Offers a freshly generated (or existing) private key to the SSH agent so
+# the passphrase is cached and non-interactive contexts can use it.
+#
+# Guards (all checked before acting):
+#   - key_path must be a regular file
+#   - ssh-add must be on PATH (check_warn + return 0 if absent)
+#   - fingerprint already in agent → skip (idempotent)
+#   - macOS (WSK_OS=macos): uses ssh-add --apple-use-keychain
+#   - Linux:  uses plain ssh-add, but only when SSH_AUTH_SOCK is set
+#             (warns + skips when no agent socket is available)
+# Failures from ssh-add are check_warn, never fatal (set +e around the call).
+# ---------------------------------------------------------------------------
+_ssh_add_key() {
+  local key_path="$1"
+
+  # Guard: key file must exist
+  [[ -f "$key_path" ]] || return 0
+
+  # Guard: ssh-add must be available
+  if ! command -v ssh-add >/dev/null 2>&1; then
+    check_warn "ssh-add not found — skipping agent load for ${key_path##"$HOME"/}"
+    return 0
+  fi
+
+  # Idempotency: check if key is already loaded in the agent.
+  # `ssh-add -l` output format: "<bits> <SHA256:fp> <comment-or-path> (<type>)"
+  # On macOS the comment field is the key file path; on Linux it may be the
+  # -C comment used at keygen time. We match on either the full path or the
+  # key filename so both cases are covered without calling ssh-keygen.
+  local agent_list key_name
+  agent_list="$(ssh-add -l 2>/dev/null || true)"
+  key_name="${key_path##*/}"
+
+  if echo "$agent_list" | grep -qF "$key_path" || \
+     echo "$agent_list" | grep -qF "$key_name"; then
+    return 0  # already loaded — skip
+  fi
+
+  # Platform-specific add
+  if [[ "${WSK_OS:-}" == "macos" ]]; then
+    local add_rc=0
+    set +e
+    ssh-add --apple-use-keychain "$key_path" 2>/dev/null
+    add_rc=$?
+    set -e
+    if [[ "$add_rc" -ne 0 ]]; then
+      check_warn "Could not load ${key_path##"$HOME"/} into Keychain agent (exit ${add_rc}) — run manually: ssh-add --apple-use-keychain ${key_path}"
+    fi
+  else
+    # Linux / other: only add when an agent socket is available
+    if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
+      check_warn "No SSH agent socket (SSH_AUTH_SOCK unset) — skipping agent load for ${key_path##"$HOME"/}"
+      return 0
+    fi
+    local add_rc=0
+    set +e
+    ssh-add "$key_path" 2>/dev/null
+    add_rc=$?
+    set -e
+    if [[ "$add_rc" -ne 0 ]]; then
+      check_warn "Could not load ${key_path##"$HOME"/} into SSH agent (exit ${add_rc}) — run manually: ssh-add ${key_path}"
+    fi
+  fi
+
+  return 0
+}
+
 # Populate WSK_ACCOUNTS from previously saved accounts/*.env (no prompts).
 # Needed by relink / doctor / update, which run without re-collecting input.
 load_accounts() {
@@ -62,6 +131,7 @@ _collect_single_account() {
     if [[ ! -f "$key_path" ]]; then
       ssh-keygen -t ed25519 -C "$git_email" -f "$key_path" -N ""
       log_success "Generated SSH key: $key_path"
+      _ssh_add_key "$key_path"
     else
       log_warn "Key $key_path already exists, skipping generation."
     fi
