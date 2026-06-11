@@ -118,15 +118,50 @@ STUB
 # Scenario 3: --upgrade flag — brew upgrade runs once before sync
 # ===========================================================================
 
-@test "ai-update: --upgrade flag — brew upgrade gentle-ai called once before sync" {
+@test "ai-update: --upgrade flag — brew upgrade gentle-ai called, gentle-ai upgrade never called" {
   seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
   printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
   mkdir -p "$HOME/.claude-work"
+
+  # brew list gentle-ai must return 0 so brew upgrade path is taken
+  cat > "$WSK_STUB_BIN/brew" <<'STUB'
+#!/usr/bin/env bash
+echo "brew $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit 0
+STUB
+  chmod +x "$WSK_STUB_BIN/brew"
 
   _run_ai_update_iso "export WSK_ACCOUNTS=(work)" "run_ai_update --upgrade"
 
   assert_stub_called "brew upgrade gentle-ai"
   assert_stub_called "gentle-ai sync"
+  # Binary upgrade must NEVER fall back to gentle-ai upgrade
+  assert_stub_not_called "gentle-ai upgrade"
+}
+
+@test "ai-update: --upgrade without brew package — logs hint, skips upgrade, still syncs" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  mkdir -p "$HOME/.claude-work"
+
+  # brew list fails for gentle-ai (not a brew install)
+  cat > "$WSK_STUB_BIN/brew" <<'STUB'
+#!/usr/bin/env bash
+echo "brew $*" >> "${WSK_STUB_LOG:-/dev/null}"
+case "$*" in
+  "list gentle-ai") exit 1 ;;
+  *) exit 0 ;;
+esac
+STUB
+  chmod +x "$WSK_STUB_BIN/brew"
+
+  local output rc=0
+  output=$(_run_ai_update_iso "export WSK_ACCOUNTS=(work)" "run_ai_update --upgrade" 2>&1) || rc=$?
+
+  # Must NOT call gentle-ai upgrade
+  assert_stub_not_called "gentle-ai upgrade"
+  # Must print a hint about brew
+  echo "$output" | grep -qi "brew"
 }
 
 # ===========================================================================

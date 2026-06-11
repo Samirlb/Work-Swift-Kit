@@ -492,18 +492,19 @@ run_ai_update() {
     [[ "$_arg" == "--upgrade" ]] && _do_upgrade=1
   done
 
-  # Binary upgrade step (once, before per-account loop)
+  # Binary upgrade step (once, before per-account loop).
+  # Brew is the ONLY supported upgrade path; gentle-ai self-upgrade is not used.
   if [[ "$_do_upgrade" -eq 1 ]]; then
-    log_info "Upgrading gentle-ai binary..."
-    local _upgrade_rc=0
     if brew list gentle-ai &>/dev/null 2>&1; then
+      log_info "Upgrading gentle-ai binary via Homebrew..."
+      local _upgrade_rc=0
       brew upgrade gentle-ai || _upgrade_rc=$?
+      if [[ "$_upgrade_rc" -ne 0 ]]; then
+        log_warn "gentle-ai upgrade failed (rc=${_upgrade_rc}) — aborting per-account sync"
+        return 1
+      fi
     else
-      gentle-ai upgrade || _upgrade_rc=$?
-    fi
-    if [[ "$_upgrade_rc" -ne 0 ]]; then
-      log_warn "gentle-ai upgrade failed (rc=${_upgrade_rc}) — aborting per-account sync"
-      return 1
+      log_info "gentle-ai not managed by Homebrew — skipping binary upgrade. To upgrade: brew upgrade gentle-ai"
     fi
   fi
 
