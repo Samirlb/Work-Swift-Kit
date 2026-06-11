@@ -115,6 +115,7 @@ run_fix_claude_cmd() {
 
 run_fix_git_cmd() {
   load_accounts
+  shift  # remove the "fix-git" command name; remaining args forwarded to run_fix_git
   run_fix_git "$@"
 }
 
@@ -164,7 +165,7 @@ COMMAND="${1:-menu}"
 [[ "$COMMAND" == "--relink" ]] && COMMAND="relink"   # back-compat
 
 if [[ "$COMMAND" != "menu" ]]; then
-  if dispatch "$COMMAND"; then
+  if dispatch "$COMMAND" "${@:2}"; then
     log_success "Done."
     exit 0
   fi

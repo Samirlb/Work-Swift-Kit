@@ -421,6 +421,15 @@ _run_doctor_output() {
 }
 
 run_doctor() {
-  preflight_accounts || return 0
+  load_accounts
+  # Guard: abort if no accounts are configured.
+  # Inline check so run_doctor works standalone (test contexts that source
+  # lib/doctor.sh directly without lib/preflight.sh still get the guard).
+  local _dr_count=0
+  if [[ -n "${WSK_ACCOUNTS+x}" ]]; then _dr_count="${#WSK_ACCOUNTS[@]}"; fi
+  if [[ "$_dr_count" -eq 0 ]]; then
+    check_warn "No accounts configured — run: wsk accounts"
+    return 0
+  fi
   _run_doctor_output
 }

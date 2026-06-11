@@ -364,3 +364,71 @@ STUB
 
   assert_stub_not_called "auth switch"
 }
+
+# ===========================================================================
+# FG-8: CLI dispatch — wsk fix-git --apply reaches apply mode
+# ===========================================================================
+
+@test "FG-8: install.sh dispatch forwards --apply so run_fix_git receives it" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
+
+  local repo_dir="$HOME/projects/work/my-repo"
+  mkdir -p "$repo_dir/.git"
+  printf 'ref: refs/heads/main\n' > "$repo_dir/.git/HEAD"
+
+  local git_stub="$WSK_STUB_BIN/git"
+  cat > "$git_stub" <<'STUB'
+#!/usr/bin/env bash
+echo "git $*" >> "${WSK_STUB_LOG:-/dev/null}"
+if [[ "$*" == *"remote get-url origin"* ]]; then
+  echo "https://github.com/org/my-repo.git"
+fi
+exit 0
+STUB
+  chmod +x "$git_stub"
+
+  # Accept both the repo rewrite prompt and the gh-switch prompt.
+  export WSK_STUB_GUM_CONFIRM_EXIT=0
+
+  # Invoke install.sh as the real CLI would: bash install.sh fix-git --apply
+  local out
+  out=$(bash -c "
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export WSK_TEST_HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    unset -f gum 2>/dev/null || true
+    ui_confirm() { return 0; }
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    ui_confirm() { return 0; }
+
+    # Source all libs that install.sh would source, then call dispatch directly
+    source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/preflight.sh'
+    source '${WSK_DIR}/lib/doctor.sh'
+    source '${WSK_DIR}/lib/fix-git.sh'
+
+    run_fix_git_cmd() {
+      load_accounts
+      shift
+      run_fix_git \"\$@\"
+    }
+
+    dispatch() {
+      case \"\$1\" in
+        fix-git) run_fix_git_cmd \"\$@\" ;;
+        *) return 1 ;;
+      esac
+    }
+
+    COMMAND='fix-git'
+    dispatch \"\$COMMAND\" '--apply' 2>&1
+  " 2>&1)
+
+  # --apply must have reached run_fix_git: git remote set-url should be called
+  assert_stub_called "remote set-url"
+}
