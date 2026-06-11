@@ -34,46 +34,53 @@ install_claude_code() {
 
 # ---------------------------------------------------------------------------
 # _write_codegraph_mcp_config <account> <cfg_dir>
-# Writes the codegraph MCP server entry into $cfg_dir/.mcp.json.
-# Idempotent: if the file already contains "codegraph", returns immediately.
-# Merge strategy:
-#   - File absent      → write full JSON object.
-#   - File present, no codegraph, jq available → jq-merge (non-destructive).
-#   - File present, no codegraph, jq absent    → check_warn, do NOT clobber.
+# Registers the codegraph MCP server for the given account.
+# Target file: $cfg_dir/.claude.json (user-scope MCP, NOT .mcp.json).
+# Claude Code reads MCP servers from .claude.json under mcpServers; .mcp.json
+# is project-scope only (repo root) and is never read from a config dir.
+#
+# Primary path: CLAUDE_CONFIG_DIR="$cfg_dir" claude mcp add --scope user codegraph
+#   (requires claude CLI on PATH; writes to .claude.json automatically).
+# Fallback:     jq-merge entry into .claude.json (creates file if absent).
+# Idempotent:   skips if "codegraph" key already present in .claude.json.
 # ---------------------------------------------------------------------------
 _write_codegraph_mcp_config() {
   local acct="$1" cfg_dir="$2"
-  local mcp_file="${cfg_dir}/.mcp.json"
+  local claude_json="${cfg_dir}/.claude.json"
 
   mkdir -p "$cfg_dir"
 
-  # Idempotency: already configured?
-  if [[ -f "$mcp_file" ]] && grep -q '"codegraph"' "$mcp_file" 2>/dev/null; then
+  # Idempotency: already registered in .claude.json?
+  if [[ -f "$claude_json" ]] && grep -q '"codegraph"' "$claude_json" 2>/dev/null; then
     check_pass "${acct}: codegraph MCP already configured"
     return 0
   fi
 
   local codegraph_entry
-  codegraph_entry='{"command":"codegraph","args":["mcp"],"env":{}}'
+  codegraph_entry='{"command":"codegraph","args":["mcp"]}'
 
-  if [[ ! -f "$mcp_file" ]]; then
-    # File absent — write full object
-    printf '{\n  "mcpServers": {\n    "codegraph": %s\n  }\n}\n' "$codegraph_entry" > "$mcp_file"
-    check_pass "${acct}: codegraph MCP config written"
+  # Primary path: use claude CLI with CLAUDE_CONFIG_DIR
+  if command -v claude &>/dev/null; then
+    CLAUDE_CONFIG_DIR="$cfg_dir" claude mcp add --scope user codegraph -- codegraph mcp
+    check_pass "${acct}: codegraph MCP registered (claude mcp add)"
     return 0
   fi
 
-  # File present, codegraph not yet in it — try jq merge
+  # Fallback: jq-merge into .claude.json
   if command -v jq &>/dev/null; then
+    if [[ ! -f "$claude_json" ]]; then
+      printf '{"mcpServers":{}}\n' > "$claude_json"
+    fi
     local tmp
     tmp="$(mktemp)"
     jq --argjson entry "$codegraph_entry" \
        '.mcpServers.codegraph = $entry' \
-       "$mcp_file" > "$tmp" && mv "$tmp" "$mcp_file"
-    check_pass "${acct}: codegraph MCP config merged"
-  else
-    check_warn "${acct}: .mcp.json exists — add codegraph server manually (jq not available)"
+       "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    check_pass "${acct}: codegraph MCP config written (.claude.json)"
+    return 0
   fi
+
+  check_warn "${acct}: claude CLI and jq both absent — add codegraph MCP server manually"
 }
 
 # ---------------------------------------------------------------------------
@@ -196,8 +203,8 @@ install_caveman() {
 
 # ---------------------------------------------------------------------------
 # install_codegraph <account>
-# Installs the codegraph npm global package for the given account and writes
-# the per-account MCP config into ~/.claude-{acct}/.mcp.json.
+# Installs the codegraph npm global package for the given account and
+# registers the per-account MCP config in ~/.claude-{acct}/.claude.json.
 # Requires Node.js. Idempotent via command -v codegraph.
 # ---------------------------------------------------------------------------
 install_codegraph() {
@@ -220,51 +227,59 @@ install_codegraph() {
 
 # ---------------------------------------------------------------------------
 # _write_context7_mcp_config <account> <cfg_dir>
-# Writes/merges the context7 MCP server entry into <cfg_dir>/.mcp.json.
-# Behaviour mirrors _write_codegraph_mcp_config:
-#   - File absent      → write full JSON object.
-#   - File present, no context7, jq available → jq-merge (non-destructive).
-#   - File present, no context7, jq absent    → check_warn, do NOT clobber.
+# Registers the context7 MCP server for the given account.
+# Target file: $cfg_dir/.claude.json (user-scope MCP, NOT .mcp.json).
+# Claude Code reads MCP servers from .claude.json under mcpServers; .mcp.json
+# is project-scope only (repo root) and is never read from a config dir.
+#
+# Primary path: CLAUDE_CONFIG_DIR="$cfg_dir" claude mcp add --scope user context7
+#   (requires claude CLI on PATH; writes to .claude.json automatically).
+# Fallback:     jq-merge entry into .claude.json (creates file if absent).
+# Idempotent:   skips if "context7" key already present in .claude.json.
 # ---------------------------------------------------------------------------
 _write_context7_mcp_config() {
   local acct="$1" cfg_dir="$2"
-  local mcp_file="${cfg_dir}/.mcp.json"
+  local claude_json="${cfg_dir}/.claude.json"
 
   mkdir -p "$cfg_dir"
 
-  # Idempotency: already configured?
-  if [[ -f "$mcp_file" ]] && grep -q '"context7"' "$mcp_file" 2>/dev/null; then
+  # Idempotency: already registered in .claude.json?
+  if [[ -f "$claude_json" ]] && grep -q '"context7"' "$claude_json" 2>/dev/null; then
     check_pass "${acct}: context7 MCP already configured"
     return 0
   fi
 
   local context7_entry
-  context7_entry='{"command":"npx","args":["-y","@upstash/context7-mcp"],"env":{}}'
+  context7_entry='{"command":"npx","args":["-y","@upstash/context7-mcp"]}'
 
-  if [[ ! -f "$mcp_file" ]]; then
-    # File absent — write full object
-    printf '{\n  "mcpServers": {\n    "context7": %s\n  }\n}\n' "$context7_entry" > "$mcp_file"
-    check_pass "${acct}: context7 MCP config written"
+  # Primary path: use claude CLI with CLAUDE_CONFIG_DIR
+  if command -v claude &>/dev/null; then
+    CLAUDE_CONFIG_DIR="$cfg_dir" claude mcp add --scope user context7 -- npx -y @upstash/context7-mcp
+    check_pass "${acct}: context7 MCP registered (claude mcp add)"
     return 0
   fi
 
-  # File present, context7 not yet in it — try jq merge
+  # Fallback: jq-merge into .claude.json
   if command -v jq &>/dev/null; then
+    if [[ ! -f "$claude_json" ]]; then
+      printf '{"mcpServers":{}}\n' > "$claude_json"
+    fi
     local tmp
     tmp="$(mktemp)"
     jq --argjson entry "$context7_entry" \
        '.mcpServers.context7 = $entry' \
-       "$mcp_file" > "$tmp" && mv "$tmp" "$mcp_file"
-    check_pass "${acct}: context7 MCP config merged"
-  else
-    check_warn "${acct}: .mcp.json exists — add context7 server manually (jq not available)"
+       "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    check_pass "${acct}: context7 MCP config written (.claude.json)"
+    return 0
   fi
+
+  check_warn "${acct}: claude CLI and jq both absent — add context7 MCP server manually"
 }
 
 # ---------------------------------------------------------------------------
 # install_context7 <account>
-# Verifies npx is available and writes the per-account context7 MCP config
-# into ~/.claude-{acct}/.mcp.json. No binary install required — context7 runs
+# Verifies npx is available and registers the per-account context7 MCP config
+# in ~/.claude-{acct}/.claude.json. No binary install required — context7 runs
 # via `npx -y @upstash/context7-mcp` at MCP startup. Idempotent.
 # ---------------------------------------------------------------------------
 install_context7() {

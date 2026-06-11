@@ -388,6 +388,46 @@ _run_doctor_output() {
 
     local cfg_dir="${HOME}/.claude-${acct}"
 
+    # MCP server checks
+    local _claude_json="${cfg_dir}/.claude.json"
+    local _stale_mcp="${cfg_dir}/.mcp.json"
+
+    # Stale .mcp.json warning
+    if [[ -f "$_stale_mcp" ]]; then
+      # Check if any key in .mcp.json is missing from .claude.json
+      local _stale=0
+      if command -v jq &>/dev/null; then
+        local _mcp_keys _missing_keys
+        _mcp_keys="$(jq -r '.mcpServers // {} | keys[]' "$_stale_mcp" 2>/dev/null || true)"
+        while IFS= read -r _key; do
+          [[ -z "$_key" ]] && continue
+          if ! jq -e --arg k "$_key" '.mcpServers[$k]' "$_claude_json" &>/dev/null 2>&1; then
+            _stale=1
+            break
+          fi
+        done <<< "$_mcp_keys"
+      else
+        # No jq — warn conservatively if .mcp.json exists
+        _stale=1
+      fi
+      if [[ "$_stale" -eq 1 ]]; then
+        check_warn "${acct}: stale .mcp.json — entries there are never loaded by Claude Code; run: wsk fix-claude"
+      fi
+    fi
+
+    # MCP servers present in .claude.json
+    if [[ -f "$_claude_json" ]] && grep -q '"codegraph"' "$_claude_json" 2>/dev/null; then
+      check_pass "${acct}: codegraph MCP registered"
+    else
+      check_warn "${acct}: codegraph MCP not registered — run: wsk ai"
+    fi
+
+    if [[ -f "$_claude_json" ]] && grep -q '"context7"' "$_claude_json" 2>/dev/null; then
+      check_pass "${acct}: context7 MCP registered"
+    else
+      check_warn "${acct}: context7 MCP not registered — run: wsk ai"
+    fi
+
     case "$framework" in
       gentle-ai)
         if command -v gentle-ai &>/dev/null; then

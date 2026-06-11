@@ -115,19 +115,20 @@ SHIM
 # install_codegraph tests
 # ---------------------------------------------------------------------------
 
-@test "install_codegraph: codegraph absent, node present — npm i -g @colbymchenry/codegraph in log; .mcp.json created" {
+@test "install_codegraph: codegraph absent, node present — npm i -g @colbymchenry/codegraph in log; .claude.json created" {
   local log_file="$WSK_TEST_HOME/cg1.log"
   : > "$log_file"
   codegraph_absent
   node_present
+  # claude stub present by default: primary path (claude mcp add) will be taken
 
   _run_iso_claude "$log_file" \
     "export WSK_OS=macos WSK_PKG_MGR=brew" \
     "install_codegraph work"
 
   grep -q "npm i -g @colbymchenry/codegraph" "$log_file"
-  [[ -f "${WSK_TEST_HOME}/.claude-work/.mcp.json" ]]
-  grep -q "codegraph" "${WSK_TEST_HOME}/.claude-work/.mcp.json"
+  grep -q "claude mcp add --scope user codegraph" "$log_file"
+  ! [[ -f "${WSK_TEST_HOME}/.claude-work/.mcp.json" ]]
 }
 
 @test "install_codegraph: codegraph present — npm NOT called, 'already installed' in output" {
@@ -160,30 +161,32 @@ SHIM
 # _write_codegraph_mcp_config tests
 # ---------------------------------------------------------------------------
 
-@test "_write_codegraph_mcp_config: .mcp.json absent — written with correct JSON structure" {
+@test "_write_codegraph_mcp_config: .claude.json absent, jq present, claude absent — written with correct JSON structure" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
+  stub_absent claude
 
   _write_codegraph_mcp_config "work" "$cfg_dir"
 
-  [[ -f "$mcp_file" ]]
-  grep -q '"codegraph"' "$mcp_file"
-  grep -q '"mcpServers"' "$mcp_file"
+  [[ -f "$claude_json" ]]
+  grep -q '"codegraph"' "$claude_json"
+  grep -q '"mcpServers"' "$claude_json"
+  ! [[ -f "$cfg_dir/.mcp.json" ]]
 }
 
-@test "_write_codegraph_mcp_config: .mcp.json present without codegraph — jq merges codegraph key, existing keys preserved" {
+@test "_write_codegraph_mcp_config: .claude.json present without codegraph — jq merges codegraph key, existing keys preserved" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
+  stub_absent claude
   mkdir -p "$cfg_dir"
 
   # Existing config without codegraph
-  cat > "$mcp_file" <<'EOF'
+  cat > "$claude_json" <<'EOF'
 {
   "mcpServers": {
     "other-server": {
       "command": "other",
-      "args": [],
-      "env": {}
+      "args": []
     }
   }
 }
@@ -192,70 +195,59 @@ EOF
   _write_codegraph_mcp_config "work" "$cfg_dir"
 
   # codegraph key added
-  grep -q '"codegraph"' "$mcp_file"
+  grep -q '"codegraph"' "$claude_json"
   # existing key preserved
-  grep -q '"other-server"' "$mcp_file"
+  grep -q '"other-server"' "$claude_json"
 }
 
-@test "_write_codegraph_mcp_config: .mcp.json present with codegraph already — no overwrite, 'already configured' in output" {
+@test "_write_codegraph_mcp_config: .claude.json present with codegraph already — no overwrite, 'already configured' in output" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
   mkdir -p "$cfg_dir"
 
-  cat > "$mcp_file" <<'EOF'
+  cat > "$claude_json" <<'EOF'
 {
   "mcpServers": {
     "codegraph": {
       "command": "codegraph",
-      "args": ["mcp"],
-      "env": {}
+      "args": ["mcp"]
     }
   }
 }
 EOF
   local orig_content
-  orig_content="$(cat "$mcp_file")"
+  orig_content="$(cat "$claude_json")"
 
   run _write_codegraph_mcp_config "work" "$cfg_dir"
 
   [ "$status" -eq 0 ]
   echo "$output" | grep -qi "already configured"
   # file unchanged
-  [[ "$(cat "$mcp_file")" == "$orig_content" ]]
+  [[ "$(cat "$claude_json")" == "$orig_content" ]]
 }
 
-@test "_write_codegraph_mcp_config: jq absent — warns 'add codegraph server manually', does NOT clobber existing file" {
+@test "_write_codegraph_mcp_config: jq absent, claude absent — warns 'manually', does NOT create .claude.json" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
   local log_file="$WSK_TEST_HOME/jq_absent.log"
   : > "$log_file"
   mkdir -p "$cfg_dir"
 
-  cat > "$mcp_file" <<'EOF'
+  cat > "$claude_json" <<'EOF'
 {
   "mcpServers": {
     "other-server": {
       "command": "other",
-      "args": [],
-      "env": {}
+      "args": []
     }
   }
 }
 EOF
   local orig_content
-  orig_content="$(cat "$mcp_file")"
+  orig_content="$(cat "$claude_json")"
 
-  # Place a jq shim that always exits non-zero (simulates jq absent or broken).
-  # command -v jq will succeed (shim exists) but we need to make _write_codegraph_mcp_config
-  # behave as if jq is absent. We override the shim to exit 127 so command -v returns false
-  # by writing a shim that is NOT executable (command -v won't find a non-executable file),
-  # OR we remove the shim AND remove /usr/bin from PATH via a wrapper approach.
-  #
-  # Simplest portable approach: replace the jq shim with one that exits 127 (not 0),
-  # and override _write_codegraph_mcp_config's command -v jq by running in a subprocess
-  # where PATH only contains $WSK_STUB_BIN (no /usr/bin which has real jq on macOS).
-  # We use only the stub bin dir on PATH so /usr/bin/jq is not visible.
-  stub_absent jq  # remove jq from stub bin → command -v jq fails in stub-only PATH
+  stub_absent jq
+  stub_absent claude
 
   local output
   output="$(bash -c "
@@ -272,7 +264,7 @@ EOF
     _write_codegraph_mcp_config 'work' '${cfg_dir}' || true
   " 2>&1)"
 
-  echo "$output" | grep -qi "manually\|add codegraph"
+  echo "$output" | grep -qi "manually\|absent\|warn"
   # existing file not clobbered
-  [[ "$(cat "$mcp_file")" == "$orig_content" ]]
+  [[ "$(cat "$claude_json")" == "$orig_content" ]]
 }

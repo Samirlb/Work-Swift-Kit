@@ -596,6 +596,37 @@ run_fix_claude() {
     fi
   done
 
+  ui_subhead "MCP migration (per account)"
+  local _mig_acct
+  for _mig_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    local _mig_cfg="${HOME}/.claude-${_mig_acct}"
+    local _stale="${_mig_cfg}/.mcp.json"
+    local _target="${_mig_cfg}/.claude.json"
+
+    if [[ ! -f "$_stale" ]]; then
+      check_pass "${_mig_acct}: no stale .mcp.json"
+      continue
+    fi
+
+    if ! command -v jq &>/dev/null; then
+      check_warn "${_mig_acct}: jq not available — migrate .mcp.json to .claude.json manually"
+      continue
+    fi
+
+    # Ensure target exists
+    [[ -f "$_target" ]] || printf '{"mcpServers":{}}\n' > "$_target"
+
+    # Merge each mcpServers entry from .mcp.json into .claude.json (idempotent)
+    local _tmp
+    _tmp="$(mktemp)"
+    jq -s '.[0].mcpServers as $old | .[1] | .mcpServers = ($old + (.mcpServers // {}))' \
+      "$_stale" "$_target" > "$_tmp" && mv "$_tmp" "$_target"
+
+    # Rename stale file (do not delete)
+    mv "$_stale" "${_stale}.migrated"
+    check_pass "${_mig_acct}: migrated .mcp.json entries to .claude.json, stale file renamed to .mcp.json.migrated"
+  done
+
   ui_subhead "CLAUDE.md patches (per gentle-ai account)"
   local acct fw env_file acct_dir
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do

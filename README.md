@@ -91,8 +91,8 @@ Only the accounts configured in the current session are used for AI setup and Gi
 - `.gitignore_global` covering macOS, Node, Flutter, Android, iOS, Expo, secrets, editors, Claude
 - Claude Code installed globally via the official installer
 - Per-account AI framework: choose from `gentle-ai`, `gsd`, or `superpowers`
-- `codegraph` MCP server wired into `~/.claude-{account}/.mcp.json` (optional, per account)
-- `context7` MCP server wired into `~/.claude-{account}/.mcp.json` (optional, per account)
+- `codegraph` MCP server registered in `~/.claude-{account}/.claude.json` (optional, per account)
+- `context7` MCP server registered in `~/.claude-{account}/.claude.json` (optional, per account)
 - Curated Claude skills in `~/.claude-{account}/skills/` (for gsd/superpowers accounts)
 
 ## Switching accounts
@@ -195,6 +195,18 @@ CLAUDE.md and skills via ancestor traversal). For `gentle-ai` accounts, also cop
 `CLAUDE.md`. Idempotent — safe to run more than once.
 
 See [docs/claude-config-hygiene.md](docs/claude-config-hygiene.md) for full details.
+
+## Installing MCP servers, skills, and plugins per scope
+
+Claude Code loads MCP servers from different files depending on scope. Use the right location for each scenario.
+
+| Scope | MCP servers | Skills | Plugins |
+|-------|-------------|--------|---------|
+| **One account** | `CLAUDE_CONFIG_DIR=~/.claude-{acct} claude mcp add --scope user <name> -- <cmd...>` writes to `~/.claude-{acct}/.claude.json` | Copy skill dirs into `~/.claude-{acct}/skills/` | Add to `enabledPlugins` in `~/.claude-{acct}/settings.json` |
+| **All accounts** | `wsk ai` runs the per-profile loop and calls `claude mcp add --scope user` for each account | `wsk ai` installs curated skills per account | `wsk ai` enables plugins in each account's `settings.json` |
+| **Per project** | `.mcp.json` at the **repo root** — the only valid location for project-scope MCP servers | `.claude/skills/` in the repo | `.claude/settings.json` `enabledPlugins` in the repo |
+
+> **Note:** `.mcp.json` inside a config dir (e.g. `~/.claude-work/.mcp.json`) is **never read** by Claude Code. User-scope MCP servers must be in `~/.claude-{acct}/.claude.json` under the `mcpServers` key. If you have a stale `.mcp.json` in a config dir, run `wsk fix-claude` to migrate its entries.
 
 ## `wsk fix-git`
 

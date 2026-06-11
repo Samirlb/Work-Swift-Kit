@@ -46,30 +46,32 @@ _run_iso_context7() {
 # _write_context7_mcp_config tests
 # ---------------------------------------------------------------------------
 
-@test "_write_context7_mcp_config: .mcp.json absent — written with context7 and mcpServers structure" {
+@test "_write_context7_mcp_config: .claude.json absent — written with context7 and mcpServers structure" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
+  stub_absent claude
 
   _write_context7_mcp_config "work" "$cfg_dir"
 
-  [[ -f "$mcp_file" ]]
-  grep -q '"context7"' "$mcp_file"
-  grep -q '"mcpServers"' "$mcp_file"
-  grep -q '"npx"' "$mcp_file"
+  [[ -f "$claude_json" ]]
+  grep -q '"context7"' "$claude_json"
+  grep -q '"mcpServers"' "$claude_json"
+  grep -q '"npx"' "$claude_json"
+  ! [[ -f "$cfg_dir/.mcp.json" ]]
 }
 
-@test "_write_context7_mcp_config: .mcp.json present with codegraph — jq merges context7, codegraph preserved" {
+@test "_write_context7_mcp_config: .claude.json present with codegraph — jq merges context7, codegraph preserved" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
+  stub_absent claude
   mkdir -p "$cfg_dir"
 
-  cat > "$mcp_file" <<'EOF'
+  cat > "$claude_json" <<'EOF'
 {
   "mcpServers": {
     "codegraph": {
       "command": "codegraph",
-      "args": ["mcp"],
-      "env": {}
+      "args": ["mcp"]
     }
   }
 }
@@ -78,59 +80,58 @@ EOF
   _write_context7_mcp_config "work" "$cfg_dir"
 
   # context7 key added
-  grep -q '"context7"' "$mcp_file"
+  grep -q '"context7"' "$claude_json"
   # codegraph key preserved
-  grep -q '"codegraph"' "$mcp_file"
+  grep -q '"codegraph"' "$claude_json"
 }
 
-@test "_write_context7_mcp_config: .mcp.json already has context7 — idempotent, 'already configured' in output, file unchanged" {
+@test "_write_context7_mcp_config: .claude.json already has context7 — idempotent, 'already configured' in output, file unchanged" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
   mkdir -p "$cfg_dir"
 
-  cat > "$mcp_file" <<'EOF'
+  cat > "$claude_json" <<'EOF'
 {
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"],
-      "env": {}
+      "args": ["-y", "@upstash/context7-mcp"]
     }
   }
 }
 EOF
   local orig_content
-  orig_content="$(cat "$mcp_file")"
+  orig_content="$(cat "$claude_json")"
 
   run _write_context7_mcp_config "work" "$cfg_dir"
 
   [ "$status" -eq 0 ]
   echo "$output" | grep -qi "already configured"
-  [[ "$(cat "$mcp_file")" == "$orig_content" ]]
+  [[ "$(cat "$claude_json")" == "$orig_content" ]]
 }
 
-@test "_write_context7_mcp_config: jq absent — warns 'add context7 server manually', does NOT clobber existing file" {
+@test "_write_context7_mcp_config: jq absent, claude absent — warns 'manually', does NOT create .claude.json" {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
-  local mcp_file="$cfg_dir/.mcp.json"
+  local claude_json="$cfg_dir/.claude.json"
   local log_file="$WSK_TEST_HOME/jq_absent_ctx7.log"
   : > "$log_file"
   mkdir -p "$cfg_dir"
 
-  cat > "$mcp_file" <<'EOF'
+  cat > "$claude_json" <<'EOF'
 {
   "mcpServers": {
     "other-server": {
       "command": "other",
-      "args": [],
-      "env": {}
+      "args": []
     }
   }
 }
 EOF
   local orig_content
-  orig_content="$(cat "$mcp_file")"
+  orig_content="$(cat "$claude_json")"
 
   stub_absent jq
+  stub_absent claude
 
   local output
   output="$(bash -c "
@@ -147,42 +148,55 @@ EOF
     _write_context7_mcp_config 'work' '${cfg_dir}' || true
   " 2>&1)"
 
-  echo "$output" | grep -qi "manually\|add context7"
-  [[ "$(cat "$mcp_file")" == "$orig_content" ]]
+  echo "$output" | grep -qi "manually\|absent\|warn"
+  [[ "$(cat "$claude_json")" == "$orig_content" ]]
+}
+
+@test "_write_context7_mcp_config: primary path — claude CLI present, invoked with correct args" {
+  local cfg_dir="$WSK_TEST_HOME/.claude-work"
+  local log_file="$WSK_TEST_HOME/ctx7_primary.log"
+  : > "$log_file"
+  # claude stub present by default from init_test_home
+
+  _run_iso_context7 "$log_file" "" "_write_context7_mcp_config work '$cfg_dir'"
+
+  grep -q 'claude mcp add --scope user context7' "$log_file"
 }
 
 # ---------------------------------------------------------------------------
 # install_context7 tests
 # ---------------------------------------------------------------------------
 
-@test "install_context7: npx present, confirm yes — .mcp.json created with context7 entry" {
+@test "install_context7: npx present, claude absent — .claude.json created with context7 entry" {
   local log_file="$WSK_TEST_HOME/ctx7_fresh.log"
   : > "$log_file"
   npx_present
+  stub_absent claude
 
   _run_iso_context7 "$log_file" \
     "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_GUM_CONFIRM_EXIT=0" \
     "install_context7 work"
 
-  [[ -f "${WSK_TEST_HOME}/.claude-work/.mcp.json" ]]
-  grep -q '"context7"' "${WSK_TEST_HOME}/.claude-work/.mcp.json"
+  [[ -f "${WSK_TEST_HOME}/.claude-work/.claude.json" ]]
+  grep -q '"context7"' "${WSK_TEST_HOME}/.claude-work/.claude.json"
+  ! [[ -f "${WSK_TEST_HOME}/.claude-work/.mcp.json" ]]
 }
 
 @test "install_context7: fresh write creates context7 alongside existing codegraph" {
   local log_file="$WSK_TEST_HOME/ctx7_alongside.log"
   : > "$log_file"
   npx_present
+  stub_absent claude
 
-  # Pre-seed .mcp.json with codegraph entry
+  # Pre-seed .claude.json with codegraph entry
   local cfg_dir="${WSK_TEST_HOME}/.claude-work"
   mkdir -p "$cfg_dir"
-  cat > "${cfg_dir}/.mcp.json" <<'EOF'
+  cat > "${cfg_dir}/.claude.json" <<'EOF'
 {
   "mcpServers": {
     "codegraph": {
       "command": "codegraph",
-      "args": ["mcp"],
-      "env": {}
+      "args": ["mcp"]
     }
   }
 }
@@ -192,8 +206,8 @@ EOF
     "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_GUM_CONFIRM_EXIT=0" \
     "install_context7 work"
 
-  grep -q '"context7"' "${cfg_dir}/.mcp.json"
-  grep -q '"codegraph"' "${cfg_dir}/.mcp.json"
+  grep -q '"context7"' "${cfg_dir}/.claude.json"
+  grep -q '"codegraph"' "${cfg_dir}/.claude.json"
 }
 
 @test "install_context7: idempotent re-run — 'already configured' reported, file not clobbered" {
@@ -201,22 +215,21 @@ EOF
   : > "$log_file"
   npx_present
 
-  # Pre-seed .mcp.json with context7 already present
+  # Pre-seed .claude.json with context7 already present
   local cfg_dir="${WSK_TEST_HOME}/.claude-work"
   mkdir -p "$cfg_dir"
-  cat > "${cfg_dir}/.mcp.json" <<'EOF'
+  cat > "${cfg_dir}/.claude.json" <<'EOF'
 {
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"],
-      "env": {}
+      "args": ["-y", "@upstash/context7-mcp"]
     }
   }
 }
 EOF
   local orig_content
-  orig_content="$(cat "${cfg_dir}/.mcp.json")"
+  orig_content="$(cat "${cfg_dir}/.claude.json")"
 
   local output
   output="$(_run_iso_context7 "$log_file" \
@@ -224,10 +237,10 @@ EOF
     "install_context7 work")"
 
   echo "$output" | grep -qi "already configured"
-  [[ "$(cat "${cfg_dir}/.mcp.json")" == "$orig_content" ]]
+  [[ "$(cat "${cfg_dir}/.claude.json")" == "$orig_content" ]]
 }
 
-@test "install_context7: confirm declined — .mcp.json NOT created" {
+@test "install_context7: confirm declined — .claude.json NOT created" {
   local log_file="$WSK_TEST_HOME/ctx7_declined.log"
   : > "$log_file"
   npx_present
@@ -236,15 +249,12 @@ EOF
     "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_GUM_CONFIRM_EXIT=1" \
     "install_context7 work"
 
-  # Function was called but ui_confirm returned false — the caller (run_ai) skips it.
-  # Test at the install_context7 level: if confirm inside install_context7 rejects, no file.
-  # Note: install_context7 itself does NOT call ui_confirm — the caller does.
-  # So this test is actually exercised at the frameworks layer. We test via _write directly.
-  # Instead verify npx was NOT invoked in a way that would break things.
+  # install_context7 itself does NOT call ui_confirm — the caller (run_ai) does.
+  # Verify no unexpected side-effects.
   true
 }
 
-@test "install_context7: npx absent — check_warn printed, .mcp.json NOT created" {
+@test "install_context7: npx absent — check_warn printed, .claude.json NOT created" {
   local log_file="$WSK_TEST_HOME/ctx7_npx_absent.log"
   : > "$log_file"
   npx_absent
@@ -255,6 +265,6 @@ EOF
     "install_context7 work")"
 
   echo "$output" | grep -qi "npx\|warn\|not found\|missing"
-  [[ ! -f "${WSK_TEST_HOME}/.claude-work/.mcp.json" ]] || \
-    ! grep -q '"context7"' "${WSK_TEST_HOME}/.claude-work/.mcp.json"
+  [[ ! -f "${WSK_TEST_HOME}/.claude-work/.claude.json" ]] || \
+    ! grep -q '"context7"' "${WSK_TEST_HOME}/.claude-work/.claude.json"
 }
