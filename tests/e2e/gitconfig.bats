@@ -149,6 +149,37 @@ EOF
 # GC-7: Missing markers on second run — re-migrate cleanly
 # ===========================================================================
 
+@test "GC-6b: legacy migration does not duplicate WSK-generated sections" {
+  local out="${WSK_DIR}/stow/.gitconfig"
+  # Simulate a fully-rendered legacy file (no markers, WSK content present)
+  cat > "$out" <<'EOF'
+[user]
+  name = Legacy User
+  email = legacy@example.com
+
+[core]
+  excludesfile = ~/.gitignore_global
+
+[alias]
+  st = status
+
+[includeIf "gitdir:~/projects/work/"]
+  path = ~/.gitconfig-work
+EOF
+
+  _run_gitconfig_iso "WSK_ACCOUNTS=(work)"
+
+  # Only ONE [user] block should exist after migration
+  local user_count
+  user_count=$(grep -c '^\[user\]' "$out" || true)
+  [[ "$user_count" -eq 1 ]]
+
+  # Only ONE [core] block should exist
+  local core_count
+  core_count=$(grep -c '^\[core\]' "$out" || true)
+  [[ "$core_count" -eq 1 ]]
+}
+
 @test "GC-7: markers absent after second run start — re-migrate cleanly" {
   # Simulate a state where somehow markers were removed
   local out="${WSK_DIR}/stow/.gitconfig"

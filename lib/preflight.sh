@@ -5,7 +5,51 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
+# require_state <flag>...
+# Validates one or more state flags before a flow runs. Supported flags:
+#   accounts — WSK_ACCOUNTS is non-empty
+#   rendered — ${WSK_DIR}/.rendered/ directory exists and is non-empty
+#   linked   — stow/.gitconfig symlink target exists in $HOME
+# Emits check_warn + remediation hint for each unmet condition.
+# Returns 0 if ALL conditions pass; non-zero on first failure.
+# ---------------------------------------------------------------------------
+require_state() {
+  local flag
+  for flag in "$@"; do
+    case "$flag" in
+      accounts)
+        local _count=0
+        if [[ -n "${WSK_ACCOUNTS+x}" ]]; then _count="${#WSK_ACCOUNTS[@]}"; fi
+        if [[ "$_count" -eq 0 ]]; then
+          check_warn "No accounts configured — run: wsk accounts"
+          return 1
+        fi
+        ;;
+      rendered)
+        local rendered_dir="${WSK_DIR}/.rendered"
+        if [[ ! -d "$rendered_dir" ]] || [[ -z "$(ls -A "$rendered_dir" 2>/dev/null)" ]]; then
+          check_warn "Dotfiles not yet rendered — run: wsk relink"
+          return 1
+        fi
+        ;;
+      linked)
+        if [[ ! -f "$HOME/.gitconfig" ]] && [[ ! -L "$HOME/.gitconfig" ]]; then
+          check_warn "Dotfiles not linked — run: wsk relink"
+          return 1
+        fi
+        ;;
+      *)
+        check_warn "require_state: unknown flag '${flag}'"
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # preflight_accounts [--allow-empty]
+# Backwards-compatible wrapper around require_state accounts.
 # Validates that WSK_ACCOUNTS is non-empty before any flow that reads account
 # data. Returns non-zero with a check_warn when accounts are missing.
 # Pass --allow-empty to skip the check (e.g. during initial setup flows).
@@ -20,18 +64,7 @@ preflight_accounts() {
     return 0
   fi
 
-  # Bash 3.2 safe: use ${#WSK_ACCOUNTS[@]} only after confirming array is set.
-  local count=0
-  if [[ -n "${WSK_ACCOUNTS+x}" ]]; then
-    count="${#WSK_ACCOUNTS[@]}"
-  fi
-
-  if [[ "$count" -eq 0 ]]; then
-    check_warn "No accounts configured — run: wsk accounts"
-    return 1
-  fi
-
-  return 0
+  require_state accounts
 }
 
 # ---------------------------------------------------------------------------

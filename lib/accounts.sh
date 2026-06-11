@@ -106,6 +106,8 @@ EOF
   if declare -f render_all >/dev/null 2>&1; then
     log_info "Re-rendering dotfiles after account change..."
     render_all
+  else
+    check_warn "render_all not available — run: wsk relink to apply account changes to dotfiles"
   fi
 }
 

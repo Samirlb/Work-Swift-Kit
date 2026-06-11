@@ -29,16 +29,29 @@ render_gitconfig() {
 
   # ── Legacy migration ──────────────────────────────────────────────────
   # If the file exists but has no managed markers it is a legacy fully-rendered
-  # gitconfig. Back it up and let the strip-and-reappend logic below produce a
-  # fresh managed-section file. Any content outside the not-yet-existing markers
-  # (i.e. the whole file) will be preserved before the new managed section.
+  # gitconfig. Back it up, then strip out the sections WSK generates so they
+  # are not duplicated alongside the new managed block. Any external sections
+  # (e.g. [credential], [url], [http]) are preserved verbatim.
   if [[ -f "$out" ]] && ! grep -qF "$begin" "$out" 2>/dev/null; then
     local backup
     backup="${out}.bak.$(date +%Y%m%d-%H%M%S)"
     cp "$out" "$backup"
     log_info "gitconfig: legacy file backed up to ${backup##*/}"
-    # Leave the file in place — the awk below will keep all its content (since
-    # there are no markers to strip) and then append the fresh WSK section.
+
+    # Strip WSK-generated sections: [user], [core], [pull], [push], [alias],
+    # [includeIf]. Blank lines between a removed section and the next are also
+    # removed to avoid accumulating whitespace. External sections are kept.
+    local stripped_tmp
+    stripped_tmp="$(mktemp)"
+    awk '
+      /^\[user\]/ || /^\[core\]/ || /^\[pull\]/ || /^\[push\]/ || /^\[alias\]/ || /^\[includeIf / {
+        skip=1; next
+      }
+      /^\[/ { skip=0 }
+      skip { next }
+      { print }
+    ' "$out" > "$stripped_tmp"
+    mv "$stripped_tmp" "$out"
   fi
 
   # ── Build the new WSK-managed content block ───────────────────────────

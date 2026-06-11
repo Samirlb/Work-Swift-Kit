@@ -354,4 +354,30 @@ STUB
   " "_scan_remotes '$HOME/projects/work'"); rc=$?
 
   [[ "$rc" -eq 0 ]]
+  # GI-9 strengthened: check_pass message should be printed for empty dir
+  echo "$out" | grep -qi "no git repos found\|no repos"
+}
+
+# ===========================================================================
+# GI-10: gh not installed — _audit_gh_login emits check_warn
+# ===========================================================================
+
+@test "GI-10: gh not installed — _audit_gh_login emits check_warn and returns 0" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
+
+  # Ensure gh is not on PATH
+  rm -f "$WSK_STUB_BIN/gh"
+
+  local out rc
+  out=$(_run_identity_iso "
+    load_accounts() { WSK_ACCOUNTS=(work); }
+    ui_section() { true; }
+    ui_subhead() { printf '\n%s\n' \"\$1\"; }
+    export WSK_OS=macos
+    export WSK_PKG_MGR=brew
+  " "_audit_gh_login work janew"); rc=$?
+
+  [[ "$rc" -eq 0 ]]
+  echo "$out" | grep -qi "gh CLI not found\|gh not found\|skipping"
 }

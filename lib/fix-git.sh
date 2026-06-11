@@ -75,6 +75,7 @@ run_fix_git() {
 
   local rewrote_count=0
   local rewrote_gh_user=""
+  local candidate_count=0
 
   local acct env_file projects_dir
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
@@ -104,6 +105,8 @@ run_fix_git() {
 
       [[ "$needs_rewrite" -eq 0 ]] && continue
 
+      candidate_count=$(( candidate_count + 1 ))
+
       local resolved_acct
       resolved_acct="$(_fix_git_resolve_acct "$repo_path")"
 
@@ -129,6 +132,11 @@ run_fix_git() {
       fi
     done
   done
+
+  # Report when no candidates were found at all
+  if [[ "$candidate_count" -eq 0 ]]; then
+    check_pass "No https remotes found — all remotes already use SSH aliases"
+  fi
 
   # Post-rewrite: offer gh auth switch
   if [[ "$apply" -eq 1 && "$rewrote_count" -gt 0 && -n "$rewrote_gh_user" ]]; then

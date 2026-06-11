@@ -366,6 +366,87 @@ STUB
 }
 
 # ===========================================================================
+# FG-repo-no-acct: Repo not under any known PROJECTS_DIR — emits check_warn
+# ===========================================================================
+
+@test "FG-repo-no-acct: repo outside every PROJECTS_DIR — check_warn emitted, repo skipped" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
+
+  # Repo lives outside the seeded PROJECTS_DIR (/tmp/other-dir/)
+  local repo_dir="$HOME/other-dir/my-repo"
+  mkdir -p "$repo_dir/.git"
+  printf 'ref: refs/heads/main\n' > "$repo_dir/.git/HEAD"
+
+  # Put the repo inside the work PROJECTS_DIR glob path so _run_fix_git sees it,
+  # but override _fix_git_resolve_acct to return empty (no owning account).
+  # Simpler: put the repo in work dir but stub git to return https URL,
+  # and override PROJECTS_DIR so repo_path does NOT match.
+  local git_stub="$WSK_STUB_BIN/git"
+  cat > "$git_stub" <<'STUB'
+#!/usr/bin/env bash
+echo "git $*" >> "${WSK_STUB_LOG:-/dev/null}"
+if [[ "$*" == *"remote get-url origin"* ]]; then
+  echo "https://github.com/org/my-repo.git"
+fi
+exit 0
+STUB
+  chmod +x "$git_stub"
+
+  # Put repo inside PROJECTS_DIR so scan finds it, but set PROJECTS_DIR for the
+  # account to a DIFFERENT path so longest-prefix-match finds no owning account.
+  local repo_dir2="$HOME/projects/work/my-repo"
+  mkdir -p "$repo_dir2/.git"
+  printf 'ref: refs/heads/main\n' > "$repo_dir2/.git/HEAD"
+
+  local out
+  out=$(_run_fix_git_iso "
+    # Accounts present but PROJECTS_DIR for 'work' points elsewhere
+    WSK_ACCOUNTS=(work)
+    ui_section() { true; }
+    ui_subhead() { true; }
+    # Override _fix_git_resolve_acct to return empty (no match)
+    _fix_git_resolve_acct() { echo ''; }
+  " "run_fix_git")
+
+  echo "$out" | grep -qi "cannot determine\|skipping\|no.*account"
+}
+
+# ===========================================================================
+# FG-0: No https remotes found — clean message when all remotes are SSH
+# ===========================================================================
+
+@test "FG-0: no https remotes found — prints clean message" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  mkdir -p "$HOME/.ssh" && touch "$HOME/.ssh/id_work"
+
+  local repo_dir="$HOME/projects/work/my-repo"
+  mkdir -p "$repo_dir/.git"
+  printf 'ref: refs/heads/main\n' > "$repo_dir/.git/HEAD"
+
+  # git returns an already-correct SSH alias remote
+  local git_stub="$WSK_STUB_BIN/git"
+  cat > "$git_stub" <<'STUB'
+#!/usr/bin/env bash
+echo "git $*" >> "${WSK_STUB_LOG:-/dev/null}"
+if [[ "$*" == *"remote get-url origin"* ]]; then
+  echo "git@github-work:org/my-repo.git"
+fi
+exit 0
+STUB
+  chmod +x "$git_stub"
+
+  local out
+  out=$(_run_fix_git_iso "
+    WSK_ACCOUNTS=(work)
+    ui_section() { true; }
+    ui_subhead() { true; }
+  " "run_fix_git")
+
+  echo "$out" | grep -qi "No https remotes found"
+}
+
+# ===========================================================================
 # FG-8: CLI dispatch — wsk fix-git --apply reaches apply mode
 # ===========================================================================
 

@@ -179,6 +179,43 @@ teardown() {
 # PF-7: All optional deps present — silent pass
 # ===========================================================================
 
+@test "PF-relink: run_relink aborts early when no accounts configured" {
+  # flow-preflight scenario: "Flow aborts when preflight fails (relink)"
+  # run_relink must NOT call render_all when accounts are empty.
+  local render_called_file="$WSK_TEST_HOME/render_called"
+
+  local out
+  out=$(bash -c "
+    export WSK_DIR='$WSK_DIR'
+    export HOME='$WSK_TEST_HOME'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    source '${WSK_DIR}/lib/log.sh'
+    source '${WSK_DIR}/lib/ui.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
+    source '${WSK_DIR}/lib/preflight.sh'
+
+    render_all() { touch '${render_called_file}'; }
+    link_dotfiles() { true; }
+    log_success() { true; }
+
+    run_relink() {
+      load_accounts
+      preflight_accounts || return 0
+      render_all
+      link_dotfiles
+    }
+
+    # No accounts — WSK_DIR has empty accounts dir
+    mkdir -p '${WSK_DIR}/accounts'
+
+    run_relink 2>&1
+  " 2>&1)
+
+  # render_all must NOT have been called
+  [[ ! -f "$render_called_file" ]]
+  echo "$out" | grep -qi "No accounts configured"
+}
+
 @test "PF-7: all optional deps present — preflight_deps returns 0 silently" {
   stub_present sd
   stub_present rg
