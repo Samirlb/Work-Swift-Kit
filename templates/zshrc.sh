@@ -32,11 +32,13 @@ EOF
   #     automatically — no prompt (mirrors git's includeIf behavior).
   #   - 0 accounts → plain claude.  1 account → use it directly, no prompt.
   #   - 2+ accounts outside any PROJECTS_DIR → fzf picker.
-  local acct_list="" acct_dir_list="" _pd
+  local acct_list="" acct_dir_list="" acct_gh_list="" _pd _gh
   for acct in "${WSK_ACCOUNTS[@]}"; do
     acct_list+="\"${acct}\" "
     _pd=$(grep '^PROJECTS_DIR=' "${WSK_DIR}/accounts/${acct}.env" | cut -d= -f2-)
     [[ -n "$_pd" ]] && acct_dir_list+="\"${acct}:${_pd}\" "
+    _gh=$(grep '^GIT_GITHUB_USER=' "${WSK_DIR}/accounts/${acct}.env" | cut -d= -f2-)
+    [[ -n "$_gh" ]] && acct_gh_list+="\"${acct}:${_gh}\" "
   done
 
   cat >> "$out" <<'GAEOF'
@@ -72,6 +74,7 @@ function claude() {
 
   local -a _wsk_accts=(${acct_list})
   local -a _wsk_acct_dirs=(${acct_dir_list})
+  local -a _wsk_acct_ghs=(${acct_gh_list})
 
   if (( \${#_wsk_accts[@]} == 0 )); then
     command claude "\$@"
@@ -79,12 +82,21 @@ function claude() {
   fi
 
   # Auto-detect account from the current directory.
-  local _pair _acct _dir
+  local _pair _acct _dir _gh_pair _detected_acct="" _detected_gh=""
   for _pair in "\${_wsk_acct_dirs[@]}"; do
     _acct="\${_pair%%:*}"
     _dir="\${_pair#*:}"
     if [[ "\$PWD" == "\$_dir" || "\$PWD" == "\$_dir"/* ]]; then
-      CLAUDE_CONFIG_DIR="\$HOME/.claude-\${_acct}" command claude "\$@"
+      _detected_acct="\$_acct"
+      # Look up GH user for the detected account
+      for _gh_pair in "\${_wsk_acct_ghs[@]}"; do
+        if [[ "\${_gh_pair%%:*}" == "\$_detected_acct" ]]; then
+          _detected_gh="\${_gh_pair#*:}"
+          break
+        fi
+      done
+      [[ -n "\$_detected_gh" ]] && _wsk_gh_switch "\$_detected_gh"
+      CLAUDE_CONFIG_DIR="\$HOME/.claude-\${_detected_acct}" command claude "\$@"
       return
     fi
   done
@@ -98,6 +110,23 @@ function claude() {
   _choice=\$(printf '%s\\n' "\${_wsk_accts[@]}" | fzf --prompt="claude › " --height=40% --reverse) || return
   [[ -z "\$_choice" ]] && return
   CLAUDE_CONFIG_DIR="\$HOME/.claude-\${_choice}" command claude "\$@"
+}
+
+EOF
+
+  # _wsk_gh_switch helper — written once, shared by all claude wrappers.
+  # GLOBAL side effect: gh auth switch changes the active gh account for the
+  # entire machine session, not only the current terminal.
+  cat >> "$out" <<'EOF'
+function _wsk_gh_switch() {
+  local _gh_user="$1"
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "[wsk] gh not found — skipping account switch" >&2
+    return 0
+  fi
+  gh auth switch --user "$_gh_user" 2>/dev/null || \
+    echo "[wsk] gh auth switch failed — Claude will use current active gh account" >&2
+  return 0
 }
 
 EOF
@@ -152,8 +181,10 @@ function ${acct}() {
   _wsk_switch_profile "${fn_gh_user}" "${fn_claude_dir}" "${fn_base}" "\$@"
 }
 
-# claude-only shorthand: launch claude with account config, no cd, no gh switch
+# claude-only shorthand: launch claude with account config; switch gh account first.
+# GLOBAL side effect: _wsk_gh_switch changes the active gh account for the entire session.
 function claude-${acct}() {
+  _wsk_gh_switch "${fn_gh_user}"
   CLAUDE_CONFIG_DIR="${fn_claude_dir}" claude "\$@"
 }
 

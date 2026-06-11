@@ -47,6 +47,7 @@ run_update() {
 
   # 3) Re-render templates so config changes land on disk.
   if ui_confirm "Re-render and re-link dotfiles with the latest templates?"; then
+    render_zshrc
     render_all
     link_dotfiles
     log_success "Dotfiles refreshed."
