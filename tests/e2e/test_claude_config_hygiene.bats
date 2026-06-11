@@ -46,6 +46,7 @@ _run_doctor_iso() {
     source '${WSK_DIR}/lib/log.sh'
     source '${WSK_DIR}/lib/ui.sh'
     source '${WSK_DIR}/lib/os.sh'
+    source '${WSK_DIR}/lib/accounts.sh'
 
     ${extra_setup}
 
