@@ -20,7 +20,17 @@ WSK_SKILLS_REPO="${WSK_SKILLS_REPO:-https://github.com/Gentleman-Programming/gen
 _persist_account_kv() {
   local file="$1" key="$2" val="$3"
   if grep -q "^${key}=" "$file" 2>/dev/null; then
-    sd "^${key}=.*" "${key}=${val}" "$file"
+    if command -v sd >/dev/null 2>&1; then
+      sd "^${key}=.*" "${key}=${val}" "$file"
+    else
+      # Fallback: POSIX awk in-place rewrite when sd is absent.
+      local tmp
+      tmp="$(mktemp)"
+      awk -v k="$key" -v v="$val" '
+        $0 ~ ("^"k"=") { print k"="v; next }
+        { print }
+      ' "$file" > "$tmp" && mv "$tmp" "$file"
+    fi
   else
     printf '%s=%s\n' "$key" "$val" >> "$file"
   fi
@@ -133,9 +143,9 @@ ${end_marker}"
   # Replace or append the minimalism block.
   if grep -qF "$begin_marker" "$md_file" 2>/dev/null; then
     # Block already present — replace the entire region between markers (inclusive).
-    # Use a Python one-liner for reliable multi-line replacement (Python ships on
-    # macOS and most Linux distros; avoids sed portability pitfalls with newlines).
-    python3 - "$md_file" "$begin_marker" "$end_marker" "$block" <<'PYEOF'
+    if command -v python3 >/dev/null 2>&1; then
+      # Use a Python one-liner for reliable multi-line replacement.
+      python3 - "$md_file" "$begin_marker" "$end_marker" "$block" <<'PYEOF'
 import sys, re
 path, begin, end, replacement = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 with open(path, 'r') as f:
@@ -145,10 +155,20 @@ new_content = re.sub(pattern, lambda m: replacement, content, flags=re.DOTALL)
 with open(path, 'w') as f:
     f.write(new_content)
 PYEOF
+    else
+      # Fallback: awk strip-and-reappend when python3 is absent.
+      local tmp
+      tmp="$(mktemp)"
+      awk -v b="$begin_marker" -v e="$end_marker" '
+        $0==b {skip=1; next}
+        $0==e {skip=0; next}
+        !skip {print}
+      ' "$md_file" > "$tmp"
+      printf '%s\n' "$block" >> "$tmp"
+      mv "$tmp" "$md_file"
+    fi
   else
     # Block absent — append it with a preceding blank line for readability.
-    # The block itself ends with the end marker; add a trailing newline so the
-    # file always ends with \n after the marker, satisfying POSIX line semantics.
     printf '\n%s\n' "$block" >> "$md_file"
   fi
 
@@ -201,7 +221,12 @@ install_ai_framework() {
       if [[ ! -f "$cfg_dir/settings.json" ]]; then
         # gentle-ai owns CLAUDE.md — drop any stale copy so install regenerates it.
         rm -f "$cfg_dir/CLAUDE.md"
-        _gentle_ai_scoped "$cfg_dir" install --agent claude-code
+        local _ga_install_rc=0
+        _gentle_ai_scoped "$cfg_dir" install --agent claude-code || _ga_install_rc=$?
+        if [[ "$_ga_install_rc" -ne 0 ]]; then
+          check_warn "gentle-ai install failed for ${acct} — AI_FRAMEWORK not saved"
+          return "$_ga_install_rc"
+        fi
       fi
       # Sync managed configs + skills to the current gentle-ai version.
       _gentle_ai_scoped "$cfg_dir" sync
