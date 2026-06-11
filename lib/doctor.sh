@@ -125,6 +125,85 @@ _audit_alias_dir() {
   done
 }
 
+# ---------------------------------------------------------------------------
+# _audit_ssh_agent <acct_name> <ssh_key_filename>
+# Per-account SSH agent checks:
+#   (a) Key file exists at ~/.ssh/<ssh_key_filename>
+#   (b) Key fingerprint or path is listed in the agent via ssh-add -l
+#       → check_pass if loaded; check_warn with the exact fix command if not
+# check_warn is emitted when ssh-add is unavailable (non-fatal).
+# ---------------------------------------------------------------------------
+_audit_ssh_agent() {
+  local acct="$1" ssh_key="$2"
+  local key_path="$HOME/.ssh/${ssh_key}"
+
+  # (a) Key file existence
+  if [[ ! -f "$key_path" ]]; then
+    check_fail "${acct}: SSH key missing: ~/.ssh/${ssh_key}"
+    return 0
+  fi
+
+  # ssh-add must be available for the agent check
+  if ! command -v ssh-add >/dev/null 2>&1; then
+    check_warn "${acct}: ssh-add not found — cannot check agent for ~/.ssh/${ssh_key}"
+    return 0
+  fi
+
+  # (b) Agent check: match key path or filename in ssh-add -l output
+  local agent_list
+  agent_list="$(ssh-add -l 2>/dev/null || true)"
+  local key_name="${ssh_key##*/}"
+
+  if echo "$agent_list" | grep -qF "$key_path" || \
+     echo "$agent_list" | grep -qF "$key_name"; then
+    check_pass "${acct}: SSH key loaded in agent: ~/.ssh/${ssh_key}"
+    return 0
+  fi
+
+  # Not loaded — warn with the exact fix command
+  local fix_cmd
+  if [[ "${WSK_OS:-}" == "macos" ]]; then
+    fix_cmd="ssh-add --apple-use-keychain ~/.ssh/${ssh_key}"
+  else
+    fix_cmd="ssh-add ~/.ssh/${ssh_key}"
+  fi
+  check_warn "${acct}: SSH key not loaded in agent: ~/.ssh/${ssh_key} — run: ${fix_cmd}"
+}
+
+# ---------------------------------------------------------------------------
+# _audit_ssh_connectivity <acct_name> <github_user> <ssh_key_filename>
+# Optional SSH connectivity check: tests git@github-{acct} with BatchMode and
+# ConnectTimeout so it fast-fails in offline or restricted environments.
+# Only runs when WSK_SSH_CHECK=1 is set (opt-in; off by default).
+# "Successfully authenticated" in stderr → check_pass. Anything else → check_warn.
+# ---------------------------------------------------------------------------
+_audit_ssh_connectivity() {
+  local acct="$1" gh_user="$2" ssh_key="$3"
+
+  # Skip unless explicitly opted in
+  [[ "${WSK_SSH_CHECK:-}" == "1" ]] || return 0
+
+  if ! command -v ssh >/dev/null 2>&1; then
+    check_warn "${acct}: ssh not found — skipping connectivity check"
+    return 0
+  fi
+
+  local ssh_output
+  # GitHub returns exit 1 even on success; capture stderr for the message.
+  ssh_output="$(ssh \
+    -o BatchMode=yes \
+    -o ConnectTimeout=5 \
+    -o StrictHostKeyChecking=no \
+    -i "$HOME/.ssh/${ssh_key}" \
+    -T "git@github-${acct}" 2>&1 || true)"
+
+  if echo "$ssh_output" | grep -qi "successfully authenticated"; then
+    check_pass "${acct}: SSH connectivity OK for ${gh_user} via github-${acct}"
+  else
+    check_warn "${acct}: SSH connectivity failed for github-${acct} — ${ssh_output%%$'\n'*}"
+  fi
+}
+
 # Inspect a path expected to be a stow symlink into WSK_DIR/stow.
 _check_link() {
   local target="$1" short="${1/#$HOME/~}"
@@ -392,6 +471,20 @@ _run_doctor_output() {
       fi
     done
   fi
+
+  # ── SSH agent (per account) ───────────────────────────────────────────
+  ui_subhead "SSH agent"
+  local _sa_acct _sa_key _sa_gh_user
+  for _sa_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    _sa_key="$(grep '^WSK_SSH_KEY=' "${WSK_DIR}/accounts/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"
+    _sa_gh_user="$(grep '^GIT_GITHUB_USER=' "${WSK_DIR}/accounts/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"
+    if [[ -n "$_sa_key" ]]; then
+      _audit_ssh_agent "$_sa_acct" "$_sa_key"
+      if [[ -n "$_sa_gh_user" ]]; then
+        _audit_ssh_connectivity "$_sa_acct" "$_sa_gh_user" "$_sa_key"
+      fi
+    fi
+  done
 
   ui_subhead "GitHub auth"
   if command -v gh &>/dev/null; then
