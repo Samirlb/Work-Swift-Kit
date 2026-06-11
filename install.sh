@@ -60,6 +60,7 @@ source "${WSK_DIR}/lib/render.sh"
 source "${WSK_DIR}/lib/stow.sh"
 source "${WSK_DIR}/lib/gh.sh"
 source "${WSK_DIR}/lib/doctor.sh"
+source "${WSK_DIR}/lib/fix-git.sh"
 source "${WSK_DIR}/lib/update.sh"
 source "${WSK_DIR}/lib/tui.sh"
 
@@ -112,6 +113,11 @@ run_fix_claude_cmd() {
   run_fix_claude
 }
 
+run_fix_git_cmd() {
+  load_accounts
+  run_fix_git "$@"
+}
+
 run_help() {
   cat <<EOF
 Work-Swift-Kit ${WSK_VERSION}
@@ -126,6 +132,7 @@ COMMANDS
   ai               Install or re-configure AI frameworks for all accounts
   sync             Run gentle-ai sync for every gentle-ai account
   fix-claude       Remove ~/.claude symlink and patch CLAUDE.md for all gentle-ai accounts
+  fix-git          Convert https github remotes to per-account SSH aliases (dry-run by default)
   relink           Re-render and re-link dotfiles without re-collecting accounts
   doctor           Scrollable health check of tools, links, accounts, and AI setup
   update           Update the kit, upgrade CLI tools, sync gentle-ai, refresh dotfiles
@@ -143,6 +150,7 @@ dispatch() {
     relink)        run_relink ;;
     doctor|check)  run_doctor ;;
     fix-claude)    run_fix_claude_cmd ;;
+    fix-git)       run_fix_git_cmd "$@" ;;
     update)        run_update ;;
     ai)            run_ai ;;
     sync)          run_sync ;;
