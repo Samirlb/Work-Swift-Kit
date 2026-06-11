@@ -65,7 +65,7 @@ _run_iso_mcp() {
   local cfg_dir="$WSK_TEST_HOME/.claude-work"
   mkdir -p "$cfg_dir"
   cat > "${cfg_dir}/.claude.json" <<'EOF'
-{"mcpServers":{"codegraph":{"command":"codegraph","args":["mcp"]}}}
+{"mcpServers":{"codegraph":{"command":"codegraph","args":["serve","--mcp"]}}}
 EOF
   local orig
   orig="$(cat "${cfg_dir}/.claude.json")"
@@ -182,7 +182,7 @@ EOF
   stub_absent claude
   mkdir -p "$cfg_dir"
   cat > "${cfg_dir}/.claude.json" <<'EOF'
-{"mcpServers":{"codegraph":{"command":"codegraph","args":["mcp"]}}}
+{"mcpServers":{"codegraph":{"command":"codegraph","args":["serve","--mcp"]}}}
 EOF
 
   _run_iso_mcp "$log_file" "" "_write_context7_mcp_config ctx '$cfg_dir'"

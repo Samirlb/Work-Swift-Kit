@@ -57,11 +57,11 @@ _write_codegraph_mcp_config() {
   fi
 
   local codegraph_entry
-  codegraph_entry='{"command":"codegraph","args":["mcp"]}'
+  codegraph_entry='{"command":"codegraph","args":["serve","--mcp"]}'
 
   # Primary path: use claude CLI with CLAUDE_CONFIG_DIR
   if command -v claude &>/dev/null; then
-    CLAUDE_CONFIG_DIR="$cfg_dir" claude mcp add --scope user codegraph -- codegraph mcp
+    CLAUDE_CONFIG_DIR="$cfg_dir" claude mcp add --scope user codegraph -- codegraph serve --mcp
     check_pass "${acct}: codegraph MCP registered (claude mcp add)"
     return 0
   fi

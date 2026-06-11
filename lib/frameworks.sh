@@ -616,10 +616,16 @@ run_fix_claude() {
     # Ensure target exists
     [[ -f "$_target" ]] || printf '{"mcpServers":{}}\n' > "$_target"
 
-    # Merge each mcpServers entry from .mcp.json into .claude.json (idempotent)
+    # Merge each mcpServers entry from .mcp.json into .claude.json (idempotent).
+    # Normalize legacy codegraph args afterwards: old WSK wrote `codegraph mcp`,
+    # which is not a valid subcommand in codegraph >= 0.9 — the MCP server
+    # starts with `codegraph serve --mcp`.
     local _tmp
     _tmp="$(mktemp)"
-    jq -s '.[0].mcpServers as $old | .[1] | .mcpServers = ($old + (.mcpServers // {}))' \
+    jq -s '.[0].mcpServers as $old | .[1] | .mcpServers = ($old + (.mcpServers // {}))
+           | if (.mcpServers.codegraph.command // "") == "codegraph"
+             then .mcpServers.codegraph.args = ["serve","--mcp"]
+             else . end' \
       "$_stale" "$_target" > "$_tmp" && mv "$_tmp" "$_target"
 
     # Rename stale file (do not delete)
