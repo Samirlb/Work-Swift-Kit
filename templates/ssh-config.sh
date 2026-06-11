@@ -18,6 +18,9 @@ Host github-${acct}
   User git
   IdentityFile ~/.ssh/${ssh_key}
   IdentitiesOnly yes
+  AddKeysToAgent yes
+  IgnoreUnknown UseKeychain
+  UseKeychain yes
 
 EOF
   done
