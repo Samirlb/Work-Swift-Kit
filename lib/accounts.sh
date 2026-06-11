@@ -76,6 +76,21 @@ _ssh_add_key() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# _ssh_load_keychain
+# macOS only: silently loads all Keychain-managed SSH keys into the agent.
+# Runs `ssh-add --apple-load-keychain 2>/dev/null` once.
+# Never prompts, never fatal. No-op on Linux/other.
+# ---------------------------------------------------------------------------
+_ssh_load_keychain() {
+  [[ "${WSK_OS:-}" == "macos" ]] || return 0
+  command -v ssh-add >/dev/null 2>&1 || return 0
+  set +e
+  ssh-add --apple-load-keychain 2>/dev/null
+  set -e
+  return 0  # always return 0; failure is silent
+}
+
 # Populate WSK_ACCOUNTS from previously saved account env files (no prompts).
 # Reads from WSK_ACCOUNTS_DIR (stable, survives brew upgrades). On first run,
 # migrates any existing files from the legacy WSK_DIR/accounts location.
@@ -174,6 +189,9 @@ _collect_single_account() {
     else
       ssh_key=$(ui_input "Enter existing SSH key filename (e.g. id_ed25519_work):") || return 130
     fi
+    # Offer the selected existing key to the SSH agent (interactive passphrase
+    # prompt if not yet keychained).  Idempotent — skips if already in agent.
+    _ssh_add_key "$HOME/.ssh/${ssh_key}"
   fi
 
   # Preserve keys written by other modules (e.g. AI_FRAMEWORK from frameworks.sh)

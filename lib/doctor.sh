@@ -527,6 +527,11 @@ _run_doctor_output() {
 
   # ── SSH agent (per account) ───────────────────────────────────────────
   ui_subhead "SSH agent"
+  # Load all Keychain-managed SSH keys once before auditing per-account keys.
+  # On macOS this self-heals the common case where the key is in the Keychain
+  # but not yet in the agent (e.g. after a reboot), turning a check_warn into
+  # a check_pass without requiring user action.  No-op on Linux.
+  _ssh_load_keychain
   local _sa_acct _sa_key _sa_gh_user
   for _sa_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     _sa_key="$(grep '^WSK_SSH_KEY=' "${WSK_ACCOUNTS_DIR}/${_sa_acct}.env" 2>/dev/null | cut -d= -f2- || true)"

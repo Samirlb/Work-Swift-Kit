@@ -385,6 +385,11 @@ run_ai_for_all_accounts() {
     return 0
   fi
 
+  # Load all Keychain-managed SSH keys once before per-account work begins.
+  # On macOS this ensures keychained keys are in the agent for any operations
+  # that rely on SSH (e.g. git clone in skill fetch).  No-op on Linux.
+  _ssh_load_keychain
+
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     install_ai_framework "$acct"
 
