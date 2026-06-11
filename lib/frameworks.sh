@@ -97,6 +97,68 @@ _patch_gentle_ai_commands() {
 }
 
 # ---------------------------------------------------------------------------
+# _patch_gentle_ai_claude_md <cfg_dir>
+# Idempotently ensures two things in <cfg_dir>/CLAUDE.md after a gentle-ai
+# install or sync:
+#   1. A marker-guarded Sub-Agent Context Minimalism block is present (replaces
+#      any existing block between the markers; appends if absent).
+#   2. An @RTK.md import line appears at the end of the file (only when RTK.md
+#      exists in the same cfg_dir; the line is added once, not duplicated).
+# Safe to call multiple times — both operations are idempotent.
+# ---------------------------------------------------------------------------
+_patch_gentle_ai_claude_md() {
+  local cfg_dir="$1"
+  local md_file="${cfg_dir}/CLAUDE.md"
+  [[ -f "$md_file" ]] || return 0
+
+  local begin_marker="<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:BEGIN -->"
+  local end_marker="<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:END -->"
+
+  # Build the minimalism block content (no leading/trailing blank lines so
+  # sed multiline replacement stays predictable).
+  local block
+  block="${begin_marker}
+## Sub-Agent Context Minimalism (MANDATORY)
+
+Every sub-agent (SDD phases included) loads ONLY what its task requires. Saturating sub-agent context is a discipline failure.
+
+- Inject only the skill paths that match the phase's code context and task context. Never pass the full skill registry or unrelated skills.
+- Pass artifact references (engram topic keys or file paths), never inline artifact content the sub-agent can fetch itself.
+- Forward only the role contract for that phase — not the orchestrator's full instructions, persona, or conversation history.
+- SDD phases read only their declared dependencies from the phase read/write table. No \"context just in case\".
+- Sub-agents must not load skills outside the injected list, must not orchestrate or spawn further agents, and must not re-read the registry unless their \`skill_resolution\` fallback fires.
+- When in doubt between passing more or less context, pass less and include the reference needed to fetch the rest.
+${end_marker}"
+
+  # Replace or append the minimalism block.
+  if grep -qF "$begin_marker" "$md_file" 2>/dev/null; then
+    # Block already present — replace the entire region between markers (inclusive).
+    # Use a Python one-liner for reliable multi-line replacement (Python ships on
+    # macOS and most Linux distros; avoids sed portability pitfalls with newlines).
+    python3 - "$md_file" "$begin_marker" "$end_marker" "$block" <<'PYEOF'
+import sys, re
+path, begin, end, replacement = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+with open(path, 'r') as f:
+    content = f.read()
+pattern = re.escape(begin) + r'.*?' + re.escape(end)
+new_content = re.sub(pattern, lambda m: replacement, content, flags=re.DOTALL)
+with open(path, 'w') as f:
+    f.write(new_content)
+PYEOF
+  else
+    # Block absent — append it with a preceding blank line for readability.
+    # The block itself ends with the end marker; add a trailing newline so the
+    # file always ends with \n after the marker, satisfying POSIX line semantics.
+    printf '\n%s\n' "$block" >> "$md_file"
+  fi
+
+  # Append @RTK.md import if RTK.md exists in the same dir and the line is absent.
+  if [[ -f "${cfg_dir}/RTK.md" ]] && ! grep -qF '@RTK.md' "$md_file" 2>/dev/null; then
+    printf '\n@RTK.md\n' >> "$md_file"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # install_ai_framework <account>
 # Presents an exclusive framework choice (or reuses an existing persisted one),
 # installs the chosen framework with CLAUDE_CONFIG_DIR scoped to the account,
@@ -146,6 +208,8 @@ install_ai_framework() {
       # gentle-ai generates `!`basename "$(pwd)"`` in sdd-new.md which Claude Code
       # rejects at permission-check time ($() can't be statically analyzed).
       _patch_gentle_ai_commands "$cfg_dir"
+      # Ensure CLAUDE.md contains WSK-managed content (minimalism block + @RTK.md).
+      _patch_gentle_ai_claude_md "$cfg_dir"
       ;;
 
     gsd)
@@ -261,7 +325,7 @@ _gentle_ai_scoped() {
   fi
 
   mv "$cfg_dir" "$dot"
-  gentle-ai "$@" || true
+  command gentle-ai "$@" || true
 
   if [[ -n "$_tmp_mask" ]]; then
     rm -rf "$_tmp_mask"
@@ -272,12 +336,25 @@ _gentle_ai_scoped() {
   rm -rf "$dot/.claude"
   mv "$dot" "$cfg_dir"
 
-  # Restore the original ~/.claude (symlink, stashed dir, or leave absent).
-  if (( had_link )); then
-    ln -sfn "$link_target" "$dot"
-  elif [[ -n "$stash" ]]; then
+  # Restore phase: put ~/.claude back exactly as it was before the swap.
+  #
+  # If the pre-swap state was a WSK-managed symlink (pointing into ~/.claude-*)
+  # or simply absent, do NOT recreate it.  Claude Code performs ancestor-directory
+  # traversal from $PWD up to $HOME; a symlink at ~/.claude resolves to the last
+  # account's real dir and causes that account's CLAUDE.md and skills/ to load in
+  # EVERY session, even ones under a different account's PROJECTS_DIR — doubling
+  # CLAUDE.md (~10 k extra tokens/session) and listing all skills twice.
+  #
+  # We remove the symlink rather than recreating it.  The per-account wrapper in
+  # ~/.zshrc already sets CLAUDE_CONFIG_DIR at launch time, so ~/.claude is never
+  # needed for normal operation.
+  #
+  # Exception: if the pre-swap ~/.claude was a real directory not managed by WSK
+  # (i.e. stash is set), it belongs to the user — restore it untouched.
+  if [[ -n "$stash" ]]; then
     mv "$stash" "$dot"
   fi
+  # had_link case: do nothing — leave ~/.claude absent to prevent ancestor-traversal double-load.
 }
 
 # ---------------------------------------------------------------------------
@@ -307,10 +384,84 @@ sync_gentle_ai_accounts() {
     local acct_dir="${HOME}/.claude-${acct}"
     _gentle_ai_scoped "$acct_dir" sync
     _patch_gentle_ai_commands "$acct_dir"
+    _patch_gentle_ai_claude_md "$acct_dir"
     check_pass "${acct}: gentle-ai synced"
   done
 
   (( synced )) || log_info "No gentle-ai accounts to sync."
+}
+
+# ---------------------------------------------------------------------------
+# run_fix_claude
+# One-shot remediation for the ~/.claude ancestor-traversal double-load problem.
+#
+# 1. Removes ~/.claude if it is a symlink (the leftover from the old restore step).
+#    Backs it up with a timestamp if it is a real directory not managed by WSK.
+#    Reports "already clean" if absent.
+# 2. For every account with AI_FRAMEWORK=gentle-ai:
+#    - Ensures RTK.md exists in the account dir (copies from any sibling account
+#      that already has one).
+#    - Runs _patch_gentle_ai_claude_md to ensure CLAUDE.md is up to date.
+# Idempotent — safe to re-run.
+# ---------------------------------------------------------------------------
+run_fix_claude() {
+  local dot="$HOME/.claude"
+
+  ui_subhead "~/.claude cleanup"
+  if [[ -L "$dot" ]]; then
+    local target
+    target="$(readlink "$dot")"
+    if ! rm "$dot"; then
+      check_fail "failed to remove symlink ~/.claude → ${target}"
+      return 1
+    fi
+    check_pass "removed symlink ~/.claude → ${target}"
+  elif [[ -d "$dot" ]]; then
+    local backup
+    backup="${dot}.wsk-backup-$(date '+%Y%m%d-%H%M%S')"
+    mv "$dot" "$backup"
+    check_pass "moved real ~/.claude directory → ${backup}"
+  else
+    check_pass "~/.claude already absent — nothing to do"
+  fi
+
+  if [[ "${#WSK_ACCOUNTS[@]}" -eq 0 ]]; then
+    load_accounts
+  fi
+
+  # Find any account dir that already has RTK.md so we can copy it to others.
+  local rtk_source=""
+  local _a
+  for _a in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    if [[ -f "${HOME}/.claude-${_a}/RTK.md" ]]; then
+      rtk_source="${HOME}/.claude-${_a}/RTK.md"
+      break
+    fi
+  done
+
+  ui_subhead "CLAUDE.md patches (per gentle-ai account)"
+  local acct fw env_file acct_dir
+  for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    env_file="${WSK_DIR}/accounts/${acct}.env"
+    fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
+    [[ "$fw" == "gentle-ai" ]] || continue
+
+    acct_dir="${HOME}/.claude-${acct}"
+    [[ -d "$acct_dir" ]] || continue
+
+    # Copy RTK.md from another account dir if this one is missing it.
+    if [[ -n "$rtk_source" && ! -f "${acct_dir}/RTK.md" ]]; then
+      cp "$rtk_source" "${acct_dir}/RTK.md"
+      check_pass "${acct}: RTK.md installed"
+    fi
+
+    if [[ -f "${acct_dir}/CLAUDE.md" ]]; then
+      _patch_gentle_ai_claude_md "$acct_dir"
+      check_pass "${acct}: CLAUDE.md patched"
+    else
+      check_warn "${acct}: CLAUDE.md missing — run: wsk ai"
+    fi
+  done
 }
 
 # ---------------------------------------------------------------------------

@@ -39,8 +39,32 @@ EOF
     [[ -n "$_pd" ]] && acct_dir_list+="\"${acct}:${_pd}\" "
   done
 
+  cat >> "$out" <<'GAEOF'
+# gentle-ai interceptor: subcommands that regenerate ~/.claude (install, sync,
+# upgrade, restore) are routed through WSK so account isolation is preserved.
+# All other subcommands (e.g. `gentle-ai --version`) pass straight through.
+function gentle-ai() {
+  local subcmd="${1:-}"
+  case "$subcmd" in
+    install|sync|upgrade|restore)
+      echo "[wsk] routing 'gentle-ai ${subcmd}' through wsk sync to preserve account isolation"
+      wsk sync
+      ;;
+    *)
+      command gentle-ai "$@"
+      ;;
+  esac
+}
+
+GAEOF
+
   cat >> "$out" <<EOF
 function claude() {
+  # Warn if ~/.claude exists: it causes ancestor-directory traversal double-load.
+  if [[ -e "\$HOME/.claude" || -L "\$HOME/.claude" ]]; then
+    echo "[wsk] WARNING: ~/.claude exists — CLAUDE.md and skills may load twice. Run: wsk fix-claude" >&2
+  fi
+
   if [[ -n "\${CLAUDE_CONFIG_DIR:-}" ]]; then
     command claude "\$@"
     return

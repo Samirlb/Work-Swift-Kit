@@ -125,6 +125,29 @@ _run_doctor_output() {
     fi
   done
 
+  # ── ~/.claude ancestor-traversal guard ───────────────────────────────
+  ui_subhead "Claude config hygiene"
+  local _dot_claude="$HOME/.claude"
+  local _has_account_dirs=0
+  local _check_acct
+  for _check_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    if [[ -d "$HOME/.claude-${_check_acct}" ]]; then
+      _has_account_dirs=1
+      break
+    fi
+  done
+  if [[ -L "$_dot_claude" ]] && [[ "$(readlink "$_dot_claude")" == "$HOME/.claude-"* ]]; then
+    # Symlink pointing into a WSK account dir — definite double-load.
+    check_fail "ancestor-traversal double-load: ~/.claude is a symlink into ~/.claude-* — CLAUDE.md and skills load twice; run: wsk fix-claude"
+  elif [[ $_has_account_dirs -eq 1 ]] && [[ -e "$_dot_claude" || -L "$_dot_claude" ]]; then
+    # Real directory (or foreign symlink) coexisting with WSK account dirs.
+    check_warn "~/.claude exists alongside ~/.claude-{acct} dirs — may cause double-load of CLAUDE.md and skills; run: wsk fix-claude if this is unintentional"
+  elif [[ $_has_account_dirs -eq 0 ]]; then
+    check_pass "~/.claude ancestor-traversal check: no account dirs provisioned — not applicable"
+  else
+    check_pass "~/.claude absent — no ancestor-traversal risk"
+  fi
+
   # ── AI frameworks (per account) ──────────────────────────────────────
   ui_subhead "AI frameworks (per account)"
 
@@ -221,6 +244,15 @@ _run_doctor_output() {
       if [[ "$acct_fw" == "gentle-ai" ]]; then
         if [[ -f "$HOME/.claude-${acct}/CLAUDE.md" ]]; then
           check_pass "CLAUDE.md: managed by gentle-ai"
+          # Check for @RTK.md import when RTK.md is absent from the account dir.
+          if grep -qF '@RTK.md' "$HOME/.claude-${acct}/CLAUDE.md" 2>/dev/null \
+             && [[ ! -f "$HOME/.claude-${acct}/RTK.md" ]]; then
+            check_warn "${acct}: CLAUDE.md references @RTK.md but RTK.md is missing — run: wsk fix-claude"
+          fi
+          # Check for Sub-Agent Context Minimalism block markers.
+          if ! grep -qF '<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:BEGIN -->' "$HOME/.claude-${acct}/CLAUDE.md" 2>/dev/null; then
+            check_warn "${acct}: CLAUDE.md missing minimalism block (drift after raw gentle-ai sync) — run: wsk fix-claude"
+          fi
         else
           check_warn "CLAUDE.md: missing — run gentle-ai install"
         fi

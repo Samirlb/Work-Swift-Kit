@@ -104,6 +104,11 @@ run_sync() {
   sync_gentle_ai_accounts
 }
 
+run_fix_claude_cmd() {
+  load_accounts
+  run_fix_claude
+}
+
 run_help() {
   cat <<EOF
 Work-Swift-Kit ${WSK_VERSION}
@@ -117,6 +122,7 @@ COMMANDS
   accounts         Re-collect accounts and re-link dotfiles
   ai               Install or re-configure AI frameworks for all accounts
   sync             Run gentle-ai sync for every gentle-ai account
+  fix-claude       Remove ~/.claude symlink and patch CLAUDE.md for all gentle-ai accounts
   relink           Re-render and re-link dotfiles without re-collecting accounts
   doctor           Scrollable health check of tools, links, accounts, and AI setup
   update           Update the kit, upgrade CLI tools, sync gentle-ai, refresh dotfiles
@@ -133,6 +139,7 @@ dispatch() {
     terminals)     install_terminals ;;
     relink)        run_relink ;;
     doctor|check)  run_doctor ;;
+    fix-claude)    run_fix_claude_cmd ;;
     update)        run_update ;;
     ai)            run_ai ;;
     sync)          run_sync ;;
@@ -150,7 +157,7 @@ if [[ "$COMMAND" != "menu" ]]; then
     log_success "Done."
     exit 0
   fi
-  echo "Usage: wsk [setup|accounts|terminals|relink|doctor|update|ai|sync]" >&2
+  echo "Usage: wsk [setup|accounts|terminals|relink|doctor|fix-claude|update|ai|sync]" >&2
   exit 1
 fi
 

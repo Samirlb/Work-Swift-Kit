@@ -15,7 +15,7 @@ WSK_WARN=214     # amber   — updates-available line
 WSK_FAINT=240    # faint   — hints
 
 # Single source of truth for the version shown in the header.
-WSK_VERSION="${WSK_VERSION:-0.3.0}"
+WSK_VERSION="${WSK_VERSION:-0.3.1}"
 
 # ── Primitives ────────────────────────────────────────────────────────
 ui_input() {
