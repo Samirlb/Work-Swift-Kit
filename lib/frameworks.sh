@@ -98,6 +98,8 @@ _patch_gentle_ai_commands() {
   local cfg_dir="$1"
   local commands_dir="${cfg_dir}/commands"
   [[ -d "$commands_dir" ]] || return 0
+  # Derive the per-account dir name from cfg_dir (e.g. ~/.claude-work → .claude-work)
+  local cfg_dir_name="${cfg_dir##*/}"
   local f
   for f in "$commands_dir"/*.md; do
     [[ -f "$f" ]] || continue
@@ -105,6 +107,13 @@ _patch_gentle_ai_commands() {
     # NOTE: keep the pattern BSD-sed compatible — `\|` alternation is GNU-only
     # and silently never matches on macOS, turning this patch into a no-op.
     sed -i '' '/basename.*pwd/d' "$f" 2>/dev/null || true
+    # Rewrite hardcoded ~/.claude/skills/ to the per-account skills path.
+    # Delimiter | avoids conflicts with path separators.
+    # Pattern is idempotent: after the first rewrite ~/.claude/skills/ is gone,
+    # so subsequent runs are no-ops.
+    # NOTE: `\|` alternation in sed is GNU-only and silently no-ops on macOS BSD sed.
+    # We use a single literal pattern here — no alternation needed.
+    sed -i '' "s|~/.claude/skills|~/${cfg_dir_name}/skills|g" "$f" 2>/dev/null || true
   done
 }
 
@@ -352,7 +361,8 @@ _gentle_ai_scoped() {
   fi
 
   mv "$cfg_dir" "$dot"
-  command gentle-ai "$@" || true
+  local _ga_rc=0
+  command gentle-ai "$@" || _ga_rc=$?
 
   if [[ -n "$_tmp_mask" ]]; then
     rm -rf "$_tmp_mask"
@@ -382,6 +392,7 @@ _gentle_ai_scoped() {
     mv "$stash" "$dot"
   fi
   # had_link case: do nothing — leave ~/.claude absent to prevent ancestor-traversal double-load.
+  return "$_ga_rc"
 }
 
 # ---------------------------------------------------------------------------
@@ -400,7 +411,7 @@ sync_gentle_ai_accounts() {
     load_accounts
   fi
 
-  local acct fw env_file synced=0
+  local acct fw env_file synced=0 _sync_fail_count=0
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     env_file="${WSK_DIR}/accounts/${acct}.env"
     fw="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
@@ -409,13 +420,25 @@ sync_gentle_ai_accounts() {
     synced=1
     log_info "Syncing gentle-ai for ${acct}..."
     local acct_dir="${HOME}/.claude-${acct}"
-    _gentle_ai_scoped "$acct_dir" sync
+    local _sync_rc=0
+    _gentle_ai_scoped "$acct_dir" sync || _sync_rc=$?
+    if [[ "$_sync_rc" -ne 0 ]]; then
+      log_warn "${acct}: gentle-ai sync failed (rc=${_sync_rc})" >&2
+      _sync_fail_count=$(( _sync_fail_count + 1 ))
+    fi
     _patch_gentle_ai_commands "$acct_dir"
     _patch_gentle_ai_claude_md "$acct_dir"
-    check_pass "${acct}: gentle-ai synced"
+    if [[ "$_sync_rc" -eq 0 ]]; then
+      check_pass "${acct}: gentle-ai synced"
+    fi
   done
 
   (( synced )) || log_info "No gentle-ai accounts to sync."
+  if [[ "$_sync_fail_count" -gt 0 ]]; then
+    log_warn "${_sync_fail_count} account(s) failed gentle-ai sync"
+    return 1
+  fi
+  return 0
 }
 
 # ---------------------------------------------------------------------------

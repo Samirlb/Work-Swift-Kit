@@ -65,12 +65,14 @@ STUB
 
   local env_file="${WSK_DIR}/accounts/work.env"
 
+  # _gentle_ai_scoped now propagates nonzero exits — absorb with || true so the
+  # test body continues to the assertion below (ec-propagation is verified separately).
   _run_frameworks_iso "
     WSK_ACCOUNTS=(work)
     load_accounts() { WSK_ACCOUNTS=(work); }
     ui_section() { true; }
     ui_subhead() { true; }
-  " "_gentle_ai_scoped '$HOME/.claude-work' install --agent claude-code"
+  " "_gentle_ai_scoped '$HOME/.claude-work' install --agent claude-code" || true
 
   # AI_FRAMEWORK should NOT be set in the env file after failure
   ! grep -q '^AI_FRAMEWORK=' "$env_file"
