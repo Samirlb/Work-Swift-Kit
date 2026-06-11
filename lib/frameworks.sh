@@ -116,6 +116,7 @@ _patch_gentle_ai_commands() {
     # Delimiter | avoids conflicts with path separators.
     # NOTE: `\|` alternation in sed is GNU-only and silently no-ops on macOS BSD sed.
     # We use a single literal pattern here — no alternation needed.
+    # shellcheck disable=SC2088  # intentional: matching the literal tilde string in file content
     if grep -q '~/.claude/skills' "$f" 2>/dev/null; then
       sed -i '' "s|~/.claude/skills|~/${cfg_dir_name}/skills|g" "$f" 2>/dev/null || true
     fi
@@ -477,10 +478,11 @@ sync_gentle_ai_accounts() {
 # first, then syncs each account and applies post-sync patches.
 #
 # Options:
-#   --upgrade   Run `brew upgrade gentle-ai` (or `gentle-ai upgrade` as
-#               fallback) once before any per-account sync. If the upgrade
-#               fails the command reports and returns 1 immediately without
-#               proceeding to per-account sync.
+#   --upgrade   Run `brew upgrade gentle-ai` once before any per-account sync.
+#               Binary upgrades are brew-only; gentle-ai self-upgrade is not
+#               used. If brew upgrade fails the command reports and returns 1
+#               immediately without proceeding to per-account sync.
+#               If gentle-ai is not installed via brew, logs a hint and skips.
 #
 # Failures in individual accounts are recorded and the loop continues to
 # remaining accounts. The command exits nonzero if any account failed.
