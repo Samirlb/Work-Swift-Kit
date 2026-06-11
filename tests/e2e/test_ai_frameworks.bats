@@ -137,7 +137,7 @@ _run_iso_fw() {
 # install_ai_framework tests — gsd
 # ---------------------------------------------------------------------------
 
-@test "install_ai_framework: ui_choose returns gsd — npx get-shit-done-cc --global recorded; personal.env has AI_FRAMEWORK=gsd" {
+@test "install_ai_framework: ui_choose returns gsd — npx @opengsd/get-shit-done-redux@latest recorded; personal.env has AI_FRAMEWORK=gsd" {
   local log_file="$WSK_TEST_HOME/fw2.log"
   : > "$log_file"
   seed_account "personal" "Personal" "Test User" "test@example.com" "testuser" "${HOME}/Personal" "id_ed25519_personal"
@@ -147,11 +147,11 @@ _run_iso_fw() {
     "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_GUM_CHOOSE_OUTPUT=gsd" \
     "install_ai_framework personal"
 
-  grep -q "get-shit-done-cc --global" "$log_file"
+  grep -q "@opengsd/get-shit-done-redux@latest" "$log_file"
   grep -q "^AI_FRAMEWORK=gsd" "${WSK_DIR}/accounts/personal.env"
 }
 
-@test "install_ai_framework: gsd fallback — WSK_STUB_NPX_EXIT=1 causes git clone of gsd repo" {
+@test "install_ai_framework: gsd all-npx-fail — git clone of open-gsd/get-shit-done-redux repo" {
   local log_file="$WSK_TEST_HOME/fw3.log"
   : > "$log_file"
   seed_account "personal" "Personal" "Test User" "test@example.com" "testuser" "${HOME}/Personal" "id_ed25519_personal"
@@ -161,7 +161,7 @@ _run_iso_fw() {
     "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_GUM_CHOOSE_OUTPUT=gsd WSK_STUB_NPX_EXIT=1" \
     "install_ai_framework personal"
 
-  grep -q "github.com/gsd-build/get-shit-done" "$log_file"
+  grep -q "github.com/open-gsd/get-shit-done-redux" "$log_file"
 }
 
 # ---------------------------------------------------------------------------

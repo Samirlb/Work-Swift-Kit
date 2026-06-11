@@ -208,6 +208,25 @@ install_ai_framework() {
     choice="$(grep '^AI_FRAMEWORK=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
   fi
 
+  # Reconfigure gate: opt-in, only active when WSK_AI_RECONFIGURE=1 (set by run_ai).
+  # When an account already has a framework set and the gate is on, ask the user
+  # whether they want to reconfigure (default No). This keeps unattended runs clean.
+  local _force_install=0
+  if [[ -n "$choice" && "${WSK_AI_RECONFIGURE:-0}" == "1" ]]; then
+    if ui_confirm "Reconfigure AI framework for ${acct}? (currently ${choice})" --default-no; then
+      # Warn: ~/.gentle-ai/state.json is global — persona/model changes affect ALL accounts.
+      log_warn "Note: ~/.gentle-ai/state.json is GLOBAL — persona and model assignments affect ALL configured accounts."
+      local _uninstall_rc=0
+      _gentle_ai_scoped "$cfg_dir" uninstall --agent claude-code --yes || _uninstall_rc=$?
+      if [[ "$_uninstall_rc" -eq 0 ]]; then
+        _force_install=1
+        choice=""
+      else
+        log_warn "${acct}: gentle-ai uninstall failed (rc=${_uninstall_rc}) — keeping existing framework"
+      fi
+    fi
+  fi
+
   if [[ -z "$choice" ]]; then
     choice="$(ui_choose "AI framework for ${acct}:" "gentle-ai" "gsd" "superpowers")"
   fi
@@ -229,7 +248,9 @@ install_ai_framework() {
       # duplicate skills in /skills). Only run install when this account has not
       # been initialized yet (settings.json is the canonical marker gentle-ai
       # creates during install). Subsequent runs use sync-only, which is idempotent.
-      if [[ ! -f "$cfg_dir/settings.json" ]]; then
+      # _force_install=1 when reconfigure was accepted: bypass the settings.json guard
+      # so the full install re-runs (upstream uninstall removed plugin entries).
+      if [[ ! -f "$cfg_dir/settings.json" || "$_force_install" -eq 1 ]]; then
         # gentle-ai owns CLAUDE.md — drop any stale copy so install regenerates it.
         rm -f "$cfg_dir/CLAUDE.md"
         local _ga_install_rc=0
@@ -249,10 +270,14 @@ install_ai_framework() {
       ;;
 
     gsd)
-      # Primary: npx; fallback: git clone
-      if ! CLAUDE_CONFIG_DIR="$cfg_dir" npx get-shit-done-cc --global; then
-        log_info "npx gsd failed — falling back to git clone"
-        git clone https://github.com/gsd-build/get-shit-done "$cfg_dir/gsd"
+      # Primary: npx @opengsd/get-shit-done-redux@latest
+      # Fallback: old package with deprecation warning (community fork must not block install)
+      if ! CLAUDE_CONFIG_DIR="$cfg_dir" npx @opengsd/get-shit-done-redux@latest --global; then
+        log_warn "DEPRECATED: @opengsd/get-shit-done-redux unavailable — falling back to get-shit-done-cc. Migrate to: npx @opengsd/get-shit-done-redux@latest"
+        if ! CLAUDE_CONFIG_DIR="$cfg_dir" npx get-shit-done-cc --global; then
+          log_info "npx gsd fallback failed — trying git clone"
+          git clone https://github.com/open-gsd/get-shit-done-redux "$cfg_dir/gsd"
+        fi
       fi
       ;;
 
@@ -532,5 +557,9 @@ run_ai() {
   if ui_confirm "Install Caveman (response token compression for Claude)?"; then
     install_caveman
   fi
+  # Gate: enable reconfigure prompts only for interactive wsk ai / menu "AI dev tools" runs.
+  # Unattended callers (run_full_setup) never set this, so they get the silent re-run path.
+  export WSK_AI_RECONFIGURE=1
   run_ai_for_all_accounts
+  unset WSK_AI_RECONFIGURE
 }

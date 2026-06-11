@@ -384,10 +384,10 @@ _run_doctor_output() {
         fi
         ;;
       gsd)
-        if command -v get-shit-done-cc &>/dev/null || command -v gsd &>/dev/null; then
+        if command -v get-shit-done-cc &>/dev/null || command -v gsd &>/dev/null || command -v gsd-redux &>/dev/null; then
           check_pass "${acct}: AI_FRAMEWORK=gsd (installed)"
         else
-          check_fail "${acct}: gsd not found on PATH"
+          check_fail "${acct}: gsd not found on PATH (tried: get-shit-done-cc, gsd, gsd-redux)"
         fi
         ;;
       superpowers)
