@@ -100,6 +100,13 @@ EOF
   [[ -n "$prev_framework" ]] && echo "AI_FRAMEWORK=${prev_framework}" >> "${WSK_DIR}/accounts/${name}.env"
 
   log_success "Account $name saved."
+
+  # Re-render dotfiles so config changes land on disk immediately after
+  # account add or edit (mirrors the render_all call in run_update/run_relink).
+  if declare -f render_all >/dev/null 2>&1; then
+    log_info "Re-rendering dotfiles after account change..."
+    render_all
+  fi
 }
 
 collect_accounts() {

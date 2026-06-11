@@ -3,6 +3,15 @@
 set -euo pipefail
 
 render_all() {
+  # Bail early when no accounts are configured yet (bash 3.2 safe: ${var+x}).
+  local _ra_count=0
+  if [[ -n "${WSK_ACCOUNTS+x}" ]]; then
+    _ra_count="${#WSK_ACCOUNTS[@]}"
+  fi
+  if [[ "$_ra_count" -eq 0 ]]; then
+    return 0
+  fi
+
   log_info "Rendering dotfiles..."
 
   mkdir -p "${WSK_DIR}/stow"
