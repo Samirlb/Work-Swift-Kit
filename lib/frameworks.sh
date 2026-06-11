@@ -718,6 +718,22 @@ run_fix_claude() {
       check_warn "${acct}: CLAUDE.md missing — run: wsk ai"
     fi
   done
+
+  # ---------------------------------------------------------------------------
+  # Plugin cache heal (per gentle-ai account)
+  # Ensures the caveman plugin cache exists for each account.  The settings
+  # enablement check inside _enable_caveman_plugin is idempotent, so calling
+  # it here is a no-op when settings are already correct; the valuable side
+  # effect is the cache dir check + sibling-copy logic.
+  # ---------------------------------------------------------------------------
+  ui_subhead "Plugin cache heal (per gentle-ai account)"
+  local _pc_acct _pc_fw _pc_env
+  for _pc_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    _pc_env="${WSK_ACCOUNTS_DIR}/${_pc_acct}.env"
+    _pc_fw="$(grep '^AI_FRAMEWORK=' "$_pc_env" 2>/dev/null | cut -d= -f2- || true)"
+    [[ "$_pc_fw" == "gentle-ai" ]] || continue
+    _enable_caveman_plugin "$_pc_acct"
+  done
 }
 
 # ---------------------------------------------------------------------------

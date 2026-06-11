@@ -161,23 +161,59 @@ _enable_caveman_plugin() {
 
   if [[ -f "$settings" ]] && grep -q '"caveman@caveman"' "$settings" 2>/dev/null; then
     check_pass "${acct}: caveman plugin already enabled"
+    # Fall through to cache check even when settings already enabled.
+  else
+    if ! command -v jq &>/dev/null; then
+      check_warn "${acct}: jq not available — enable the caveman plugin in ${settings} manually"
+      return 0
+    fi
+
+    [[ -f "$settings" ]] || printf '{}\n' > "$settings"
+
+    local tmp
+    tmp="$(mktemp)"
+    jq '.enabledPlugins."caveman@caveman" = true
+        | .extraKnownMarketplaces.caveman = {
+            source: { source: "github", repo: "JuliusBrussee/caveman" }
+          }' "$settings" > "$tmp" && mv "$tmp" "$settings"
+    check_pass "${acct}: caveman plugin enabled"
+  fi
+
+  # ---------------------------------------------------------------------------
+  # Plugin cache verification
+  # After enabling (or confirming already-enabled), check that the plugin cache
+  # dir exists.  gentle-ai reconfigure wipe removes it, causing Claude Code to
+  # error "Plugin directory does not exist … run /plugin to reinstall".
+  #
+  # Strategy:
+  #   1. Cache dir present  → nothing to do.
+  #   2. Cache dir missing, sibling ~/.claude-*/plugins/cache/caveman found
+  #                         → copy it with cp -r.
+  #   3. Cache dir missing, no sibling → emit check_warn with /plugin hint.
+  # ---------------------------------------------------------------------------
+  local cache_dir="${cfg_dir}/plugins/cache/caveman"
+  if [[ -d "$cache_dir" ]]; then
     return 0
   fi
 
-  if ! command -v jq &>/dev/null; then
-    check_warn "${acct}: jq not available — enable the caveman plugin in ${settings} manually"
-    return 0
+  # Search sibling account dirs for a copy of the cache.
+  local sibling_cache=""
+  local _sib
+  for _sib in "${HOME}"/.claude-*/plugins/cache/caveman; do
+    # Skip the current account's own (missing) dir and glob non-matches.
+    [[ -d "$_sib" ]] || continue
+    [[ "$_sib" == "$cache_dir" ]] && continue
+    sibling_cache="$_sib"
+    break
+  done
+
+  if [[ -n "$sibling_cache" ]]; then
+    mkdir -p "${cfg_dir}/plugins/cache"
+    cp -r "$sibling_cache" "${cfg_dir}/plugins/cache/caveman"
+    check_pass "${acct}: caveman plugin cache restored from sibling account"
+  else
+    check_warn "${acct}: caveman plugin cache missing — open a Claude session in that profile and run /plugin to reinstall caveman"
   fi
-
-  [[ -f "$settings" ]] || printf '{}\n' > "$settings"
-
-  local tmp
-  tmp="$(mktemp)"
-  jq '.enabledPlugins."caveman@caveman" = true
-      | .extraKnownMarketplaces.caveman = {
-          source: { source: "github", repo: "JuliusBrussee/caveman" }
-        }' "$settings" > "$tmp" && mv "$tmp" "$settings"
-  check_pass "${acct}: caveman plugin enabled"
 }
 
 install_caveman() {
