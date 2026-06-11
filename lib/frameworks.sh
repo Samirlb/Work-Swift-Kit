@@ -270,14 +270,14 @@ install_ai_framework() {
       ;;
 
     gsd)
-      # Primary: npx @opengsd/get-shit-done-redux@latest
-      # Fallback: old package with deprecation warning (community fork must not block install)
-      if ! CLAUDE_CONFIG_DIR="$cfg_dir" npx @opengsd/get-shit-done-redux@latest --global; then
-        log_warn "DEPRECATED: @opengsd/get-shit-done-redux unavailable — falling back to get-shit-done-cc. Migrate to: npx @opengsd/get-shit-done-redux@latest"
-        if ! CLAUDE_CONFIG_DIR="$cfg_dir" npx get-shit-done-cc --global; then
-          log_info "npx gsd fallback failed — trying git clone"
-          git clone https://github.com/open-gsd/get-shit-done-redux "$cfg_dir/gsd"
-        fi
+      # Hard cutover: only @opengsd/get-shit-done-redux is supported.
+      # No fallback to the legacy get-shit-done-cc package.
+      # On failure, return a nonzero exit so the caller can surface the error.
+      local _gsd_rc=0
+      CLAUDE_CONFIG_DIR="$cfg_dir" npx @opengsd/get-shit-done-redux@latest --global || _gsd_rc=$?
+      if [[ "$_gsd_rc" -ne 0 ]]; then
+        log_warn "${acct}: gsd install failed (rc=${_gsd_rc}) — run: npx @opengsd/get-shit-done-redux@latest --global"
+        return "$_gsd_rc"
       fi
       ;;
 

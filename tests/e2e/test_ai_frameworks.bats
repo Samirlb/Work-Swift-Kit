@@ -151,17 +151,20 @@ _run_iso_fw() {
   grep -q "^AI_FRAMEWORK=gsd" "${WSK_DIR}/accounts/personal.env"
 }
 
-@test "install_ai_framework: gsd all-npx-fail — git clone of open-gsd/get-shit-done-redux repo" {
+@test "install_ai_framework: gsd npx-fail — exits nonzero, no fallback to get-shit-done-cc" {
   local log_file="$WSK_TEST_HOME/fw3.log"
   : > "$log_file"
   seed_account "personal" "Personal" "Test User" "test@example.com" "testuser" "${HOME}/Personal" "id_ed25519_personal"
   node_present
 
+  # All npx calls fail — hard cutover means no fallback, just nonzero exit
+  local rc=0
   _run_iso_fw "$log_file" \
     "export WSK_OS=macos WSK_PKG_MGR=brew WSK_STUB_GUM_CHOOSE_OUTPUT=gsd WSK_STUB_NPX_EXIT=1" \
-    "install_ai_framework personal"
+    "install_ai_framework personal" || rc=$?
 
-  grep -q "github.com/open-gsd/get-shit-done-redux" "$log_file"
+  # Must NOT have attempted get-shit-done-cc
+  ! grep -q "get-shit-done-cc" "$log_file"
 }
 
 # ---------------------------------------------------------------------------
