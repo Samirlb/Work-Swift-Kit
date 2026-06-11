@@ -28,6 +28,11 @@ init_test_home() {
   WSK_STUB_BIN="$WSK_TEST_HOME/bin"
   export WSK_STUB_BIN
   mkdir -p "$WSK_STUB_BIN"
+
+  # Save the original PATH before restriction so special shim writers (jq, sd)
+  # can still locate the real binaries at shim-write time.
+  WSK_ORIGINAL_PATH="$PATH"
+  export WSK_ORIGINAL_PATH
   PATH="$WSK_STUB_BIN:$PATH"
   export PATH
 
@@ -46,8 +51,17 @@ init_test_home() {
   [[ -d "$WSK_REPO_DIR/tools" ]] && cp -R "$WSK_REPO_DIR/tools" "$WSK_DIR/"
   cp "$WSK_REPO_DIR/install.sh" "$WSK_DIR/"
 
-  # Install all default shims
+  # Install all default shims — jq and sd shims resolve the real binary from
+  # $WSK_ORIGINAL_PATH at write time, before PATH is restricted below.
   _install_all_default_shims
+
+  # Restrict PATH to the stub bin + POSIX-standard system dirs only.
+  # This ensures that developer tools on the host (rg, bat, eza, gh, etc.)
+  # do NOT bleed into tests: command -v finds only what is in $WSK_STUB_BIN
+  # or the base OS dirs.  stub_absent makes a binary disappear simply by
+  # removing (or not having) its entry from $WSK_STUB_BIN.
+  PATH="$WSK_STUB_BIN:/usr/bin:/bin"
+  export PATH
 }
 
 # stub_present <name>
@@ -64,6 +78,9 @@ stub_present() {
 
 # stub_absent <name>
 # Removes $WSK_STUB_BIN/<name> so command -v fails.
+# Works correctly because init_test_home restricts PATH to $WSK_STUB_BIN plus
+# POSIX system dirs (/usr/bin:/bin), ensuring real developer tools on the host
+# cannot shadow what the test controls.
 stub_absent() {
   local name="$1"
   rm -f "$WSK_STUB_BIN/$name"
@@ -167,8 +184,8 @@ _write_jq_shim() {
   # Delegate to real jq so JSON merge tests work correctly.
   local shim="$WSK_STUB_BIN/jq"
   local real_jq
-  # Find real jq outside the stub bin
-  real_jq="$(PATH="${PATH//$WSK_STUB_BIN:/}" command -v jq 2>/dev/null || true)"
+  # Find real jq on the original (unrestricted) PATH.
+  real_jq="$(PATH="${WSK_ORIGINAL_PATH:-${PATH//$WSK_STUB_BIN:/}}" command -v jq 2>/dev/null || true)"
   if [[ -n "$real_jq" ]]; then
     cat > "$shim" <<SHIM
 #!/usr/bin/env bash
@@ -189,7 +206,8 @@ _write_sd_shim() {
   # Delegate to real sd for in-place file editing.
   local shim="$WSK_STUB_BIN/sd"
   local real_sd
-  real_sd="$(PATH="${PATH//$WSK_STUB_BIN:/}" command -v sd 2>/dev/null || true)"
+  # Find real sd on the original (unrestricted) PATH.
+  real_sd="$(PATH="${WSK_ORIGINAL_PATH:-${PATH//$WSK_STUB_BIN:/}}" command -v sd 2>/dev/null || true)"
   if [[ -n "$real_sd" ]]; then
     cat > "$shim" <<SHIM
 #!/usr/bin/env bash
@@ -283,22 +301,48 @@ SHIM
   chmod +x "$shim"
 }
 
+_write_stow_shim() {
+  # Delegate to real stow so link_dotfiles tests work correctly.
+  local shim="$WSK_STUB_BIN/stow"
+  local real_stow
+  # Find real stow on the original (unrestricted) PATH.
+  real_stow="$(PATH="${WSK_ORIGINAL_PATH:-${PATH//$WSK_STUB_BIN:/}}" command -v stow 2>/dev/null || true)"
+  if [[ -n "$real_stow" ]]; then
+    cat > "$shim" <<SHIM
+#!/usr/bin/env bash
+echo "stow \$*" >> "\${WSK_STUB_LOG:-/dev/null}"
+exec "$real_stow" "\$@"
+SHIM
+  else
+    cat > "$shim" <<'SHIM'
+#!/usr/bin/env bash
+echo "stow $*" >> "${WSK_STUB_LOG:-/dev/null}"
+exit "${WSK_STUB_STOW_EXIT:-0}"
+SHIM
+  fi
+  chmod +x "$shim"
+}
+
 # ---------------------------------------------------------------------------
 # Install all default shims (called by init_test_home)
 # ---------------------------------------------------------------------------
 _install_all_default_shims() {
-  # Special-behaviour shims
+  # Special-behaviour shims (delegate to real binary or have custom logic)
   _write_node_shim
   _write_git_shim
   _write_jq_shim
   _write_sd_shim
+  _write_stow_shim
   _write_gum_shim
   _write_npx_shim
   _write_curl_shim
   _write_brew_shim
 
-  # Generic shims (record + return 0)
-  for _stub_name in npm pnpm corepack claude gentle-ai codegraph winget apt-get dnf pacman; do
+  # Generic shims (record + return 0).
+  # Includes package-manager helpers, CLI tools that tests stub_absent/stub_present,
+  # and toolchain binaries that lib code calls directly (fzf, envsubst, gettext).
+  # Note: git, jq, sd, stow have special-behaviour shims above and are excluded here.
+  for _stub_name in npm pnpm corepack claude gentle-ai codegraph winget apt-get dnf pacman gh fzf rg bat eza fd starship zoxide tree envsubst gettext; do
     _upper="$(echo "$_stub_name" | tr '[:lower:]-' '[:upper:]_')"
     _write_shim "$_stub_name" "$_upper"
   done
