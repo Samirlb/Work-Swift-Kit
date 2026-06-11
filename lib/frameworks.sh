@@ -106,14 +106,19 @@ _patch_gentle_ai_commands() {
     # shellcheck disable=SC2016  # single quotes intentional: matching literal $() in file content
     # NOTE: keep the pattern BSD-sed compatible — `\|` alternation is GNU-only
     # and silently never matches on macOS, turning this patch into a no-op.
-    sed -i '' '/basename.*pwd/d' "$f" 2>/dev/null || true
+    # Guard with grep before sed so files without matches are not rewritten
+    # (avoids needless mtime updates on every sync invocation).
+    if grep -q 'basename.*pwd' "$f" 2>/dev/null; then
+      sed -i '' '/basename.*pwd/d' "$f" 2>/dev/null || true
+    fi
     # Rewrite hardcoded ~/.claude/skills/ to the per-account skills path.
+    # Guard with grep so files without the pattern are not touched.
     # Delimiter | avoids conflicts with path separators.
-    # Pattern is idempotent: after the first rewrite ~/.claude/skills/ is gone,
-    # so subsequent runs are no-ops.
     # NOTE: `\|` alternation in sed is GNU-only and silently no-ops on macOS BSD sed.
     # We use a single literal pattern here — no alternation needed.
-    sed -i '' "s|~/.claude/skills|~/${cfg_dir_name}/skills|g" "$f" 2>/dev/null || true
+    if grep -q '~/.claude/skills' "$f" 2>/dev/null; then
+      sed -i '' "s|~/.claude/skills|~/${cfg_dir_name}/skills|g" "$f" 2>/dev/null || true
+    fi
   done
 }
 

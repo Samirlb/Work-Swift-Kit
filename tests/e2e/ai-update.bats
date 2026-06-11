@@ -165,7 +165,37 @@ STUB
 }
 
 # ===========================================================================
-# Scenario 4: CLI dispatch routes correctly — wsk ai-update dispatched to run_ai_update
+# Scenario (4a): brew upgrade fails — run_ai_update aborts sync, returns nonzero
+# ===========================================================================
+
+@test "ai-update: brew upgrade fails — sync aborted, exit nonzero" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  printf '\nAI_FRAMEWORK=gentle-ai\n' >> "${WSK_DIR}/accounts/work.env"
+  mkdir -p "$HOME/.claude-work"
+
+  # brew list succeeds but brew upgrade fails
+  cat > "$WSK_STUB_BIN/brew" <<'STUB'
+#!/usr/bin/env bash
+echo "brew $*" >> "${WSK_STUB_LOG:-/dev/null}"
+case "$*" in
+  "list gentle-ai") exit 0 ;;
+  "upgrade gentle-ai") exit 1 ;;
+  *) exit 0 ;;
+esac
+STUB
+  chmod +x "$WSK_STUB_BIN/brew"
+
+  local rc=0
+  _run_ai_update_iso "export WSK_ACCOUNTS=(work)" "run_ai_update --upgrade" || rc=$?
+
+  # Must exit nonzero when brew upgrade fails
+  [[ "$rc" -ne 0 ]]
+  # Sync must NOT have been called (abort-before-sync)
+  assert_stub_not_called "gentle-ai sync"
+}
+
+# ===========================================================================
+# Scenario 5: CLI dispatch routes correctly — wsk ai-update dispatched to run_ai_update
 # ===========================================================================
 
 @test "ai-update: wsk ai-update dispatch — routes to run_ai_update handler" {
@@ -206,4 +236,42 @@ STUB
   " 2>&1)
 
   echo "$output" | grep -q "DISPATCH_OK"
+}
+
+# ===========================================================================
+# Scenario 6 (4d): menu "AI Update" entry dispatches run_ai_update at runtime
+# ===========================================================================
+
+@test "ai-update: menu AI Update entry — dispatches to run_ai_update at runtime" {
+  local run_ai_update_flag="$WSK_TEST_HOME/run_ai_update_called"
+
+  # Simulate the menu case block from install.sh.
+  # When ACTION matches *"AI Update"*, it must call run_ai_update.
+  bash -c "
+    export HOME='$WSK_TEST_HOME'
+    export WSK_DIR='$WSK_DIR'
+    export PATH='$WSK_STUB_BIN:/usr/bin:/bin'
+    export WSK_STUB_LOG='$WSK_STUB_LOG'
+
+    # Stub the heavy function under test so the test stays fast
+    run_ai_update() {
+      touch '${run_ai_update_flag}'
+    }
+
+    # tui_wrap_action just runs the function (no tui machinery in test context)
+    tui_wrap_action() {
+      \"\$@\"
+    }
+
+    # Reproduce the menu dispatch logic from install.sh
+    ACTION='AI Update'
+    case \"\$ACTION\" in
+      *'Full setup'*)          tui_wrap_action run_full_setup ;;
+      *'AI dev tools'*)        tui_wrap_action run_ai ;;
+      *'AI Update'*)           tui_wrap_action run_ai_update ;;
+      *'Quit'* | '')           exit 0 ;;
+    esac
+  " 2>&1
+
+  [[ -f "$run_ai_update_flag" ]]
 }

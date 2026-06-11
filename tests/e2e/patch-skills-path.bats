@@ -96,6 +96,37 @@ No hardcoded paths here."
 }
 
 # ===========================================================================
+# Scenario 2b: mtime not updated when no hardcoded paths in file
+# ===========================================================================
+
+@test "commands with no hardcoded ~/.claude/skills/ — mtime not updated by patch" {
+  seed_account "work" "Work" "Jane" "jane@work.com" "janew" "$HOME/projects/work" "id_work"
+  local cfg_dir="$HOME/.claude-work"
+  local commands_dir="$cfg_dir/commands"
+  mkdir -p "$commands_dir"
+
+  printf '# Clean file, no hardcoded paths\n' > "$commands_dir/clean.md"
+
+  # Record mtime before
+  local mtime_before
+  mtime_before="$(stat -f '%m' "$commands_dir/clean.md" 2>/dev/null || stat -c '%Y' "$commands_dir/clean.md")"
+
+  # Ensure at least 1 second passes so mtime delta is detectable
+  sleep 1
+
+  _run_fw_iso "" "_patch_gentle_ai_commands '$cfg_dir'"
+
+  local mtime_after
+  mtime_after="$(stat -f '%m' "$commands_dir/clean.md" 2>/dev/null || stat -c '%Y' "$commands_dir/clean.md")"
+
+  # mtime must be unchanged — no sed rewrite on files without matches
+  if [[ "$mtime_before" != "$mtime_after" ]]; then
+    echo "FAIL: mtime changed ($mtime_before -> $mtime_after) — sed ran needlessly on a file with no matches" >&2
+    return 1
+  fi
+}
+
+# ===========================================================================
 # Scenario 3: patch runs after every sync — _patch_gentle_ai_commands called
 # ===========================================================================
 
