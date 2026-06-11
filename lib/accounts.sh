@@ -39,7 +39,7 @@ _ssh_add_key() {
   key_name="${key_path##*/}"
 
   if echo "$agent_list" | grep -qF "$key_path" || \
-     echo "$agent_list" | grep -qF "$key_name"; then
+     echo "$agent_list" | grep -qE "(^| )${key_name}( |\$)"; then
     return 0  # already loaded — skip
   fi
 

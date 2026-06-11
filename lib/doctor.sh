@@ -155,7 +155,7 @@ _audit_ssh_agent() {
   local key_name="${ssh_key##*/}"
 
   if echo "$agent_list" | grep -qF "$key_path" || \
-     echo "$agent_list" | grep -qF "$key_name"; then
+     echo "$agent_list" | grep -qE "(^| )${key_name}( |\$)"; then
     check_pass "${acct}: SSH key loaded in agent: ~/.ssh/${ssh_key}"
     return 0
   fi
@@ -495,7 +495,7 @@ _run_doctor_output() {
 
   # ── git / gh identity audit (per account) ────────────────────────────
   ui_subhead "git / gh identity"
-  local gh_user projects_dir
+  local gh_user projects_dir env_file
   for acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
     env_file="${WSK_DIR}/accounts/${acct}.env"
     gh_user="$(grep '^GIT_GITHUB_USER=' "$env_file" 2>/dev/null | cut -d= -f2- || true)"
