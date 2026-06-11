@@ -217,3 +217,64 @@ install_codegraph() {
 
   _write_codegraph_mcp_config "$acct" "$cfg_dir"
 }
+
+# ---------------------------------------------------------------------------
+# _write_context7_mcp_config <account> <cfg_dir>
+# Writes/merges the context7 MCP server entry into <cfg_dir>/.mcp.json.
+# Behaviour mirrors _write_codegraph_mcp_config:
+#   - File absent      → write full JSON object.
+#   - File present, no context7, jq available → jq-merge (non-destructive).
+#   - File present, no context7, jq absent    → check_warn, do NOT clobber.
+# ---------------------------------------------------------------------------
+_write_context7_mcp_config() {
+  local acct="$1" cfg_dir="$2"
+  local mcp_file="${cfg_dir}/.mcp.json"
+
+  mkdir -p "$cfg_dir"
+
+  # Idempotency: already configured?
+  if [[ -f "$mcp_file" ]] && grep -q '"context7"' "$mcp_file" 2>/dev/null; then
+    check_pass "${acct}: context7 MCP already configured"
+    return 0
+  fi
+
+  local context7_entry
+  context7_entry='{"command":"npx","args":["-y","@upstash/context7-mcp"],"env":{}}'
+
+  if [[ ! -f "$mcp_file" ]]; then
+    # File absent — write full object
+    printf '{\n  "mcpServers": {\n    "context7": %s\n  }\n}\n' "$context7_entry" > "$mcp_file"
+    check_pass "${acct}: context7 MCP config written"
+    return 0
+  fi
+
+  # File present, context7 not yet in it — try jq merge
+  if command -v jq &>/dev/null; then
+    local tmp
+    tmp="$(mktemp)"
+    jq --argjson entry "$context7_entry" \
+       '.mcpServers.context7 = $entry' \
+       "$mcp_file" > "$tmp" && mv "$tmp" "$mcp_file"
+    check_pass "${acct}: context7 MCP config merged"
+  else
+    check_warn "${acct}: .mcp.json exists — add context7 server manually (jq not available)"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# install_context7 <account>
+# Verifies npx is available and writes the per-account context7 MCP config
+# into ~/.claude-{acct}/.mcp.json. No binary install required — context7 runs
+# via `npx -y @upstash/context7-mcp` at MCP startup. Idempotent.
+# ---------------------------------------------------------------------------
+install_context7() {
+  local acct="$1"
+  local cfg_dir="${HOME}/.claude-${acct}"
+
+  if ! command -v npx &>/dev/null; then
+    check_warn "npx not found — install Node.js to enable context7 MCP for ${acct}"
+    return 0
+  fi
+
+  _write_context7_mcp_config "$acct" "$cfg_dir"
+}

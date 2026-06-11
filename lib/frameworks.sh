@@ -337,6 +337,10 @@ run_ai_for_all_accounts() {
       install_codegraph "$acct"
     fi
 
+    if ui_confirm "Install context7 MCP (up-to-date library docs) for ${acct}?"; then
+      install_context7 "$acct"
+    fi
+
     install_curated_skills "$acct" "$framework"
   done
 }

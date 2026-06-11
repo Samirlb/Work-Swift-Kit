@@ -45,7 +45,7 @@ Or call any action directly:
 | `wsk setup`      | Full setup: accounts, packages, terminals, AI dev tools, gh auth, dotfiles          |
 | `wsk accounts`   | Configure accounts and authentication only                                          |
 | `wsk terminals`  | Install terminals/editors only                                                      |
-| `wsk ai`         | Install Claude Code, AI framework, codegraph, and curated skills per account        |
+| `wsk ai`         | Install Claude Code, AI framework, codegraph, context7, and curated skills per account |
 | `wsk sync`       | Run `gentle-ai sync` (configs + skills) for every gentle-ai account                 |
 | `wsk doctor`     | Scrollable health check of tools, links, accounts, AI setup, and SSH agent          |
 | `wsk update`     | Update the kit, upgrade CLI tools, sync gentle-ai, optionally refresh dotfiles      |
@@ -61,7 +61,7 @@ Or call any action directly:
   Full setup           Install everything and configure all tools
   Accounts only        Configure accounts and authentication
   Terminals only       Setup shells, aliases and terminal tools
-  AI dev tools         Install Claude Code, framework, codegraph and skills per account
+  AI dev tools         Install Claude Code, framework, codegraph, context7 and skills per account
   Check configuration  Verify installed tools, links and accounts
   Update               Pull latest kit and upgrade packages
   Re-link configs      Re-symlink existing configuration files
@@ -92,6 +92,7 @@ Only the accounts configured in the current session are used for AI setup and Gi
 - Claude Code installed globally via the official installer
 - Per-account AI framework: choose from `gentle-ai`, `gsd`, or `superpowers`
 - `codegraph` MCP server wired into `~/.claude-{account}/.mcp.json` (optional, per account)
+- `context7` MCP server wired into `~/.claude-{account}/.mcp.json` (optional, per account)
 - Curated Claude skills in `~/.claude-{account}/skills/` (for gsd/superpowers accounts)
 
 ## Switching accounts
@@ -126,6 +127,7 @@ Each switcher swaps the active `gh` user, sets `CLAUDE_CONFIG_DIR` to `~/.claude
 4. For each account, prompts to:
    - Choose an **AI framework**: `gentle-ai`, `gsd`, or `superpowers`
    - Optionally install **codegraph** and wire its MCP config
+   - Optionally install **context7** and wire its MCP config (up-to-date library docs via npx)
    - Install **curated Claude skills**
 
 ### Framework choices
@@ -182,6 +184,7 @@ For `gsd` and `superpowers` accounts, 6 skills are cloned from `Gentleman-Progra
 | `pnpm` | Package manager |
 | `claude` | Claude Code CLI |
 | `codegraph` | Codebase MCP server (optional, per account) |
+| `context7` | Up-to-date library docs MCP server via npx (optional, per account) |
 
 ## `wsk fix-claude`
 
