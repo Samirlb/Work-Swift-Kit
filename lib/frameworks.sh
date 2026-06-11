@@ -102,7 +102,9 @@ _patch_gentle_ai_commands() {
   for f in "$commands_dir"/*.md; do
     [[ -f "$f" ]] || continue
     # shellcheck disable=SC2016  # single quotes intentional: matching literal $() in file content
-    sed -i '' '/basename.*\$.*pwd\|basename.*\$(pwd)/d' "$f" 2>/dev/null || true
+    # NOTE: keep the pattern BSD-sed compatible — `\|` alternation is GNU-only
+    # and silently never matches on macOS, turning this patch into a no-op.
+    sed -i '' '/basename.*pwd/d' "$f" 2>/dev/null || true
   done
 }
 

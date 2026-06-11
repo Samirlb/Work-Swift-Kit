@@ -340,3 +340,23 @@ _run_iso_fw() {
   # Should output warn messages but not crash (exit 0 from || true in _run_iso_fw)
   echo "$output" | grep -qi "unavailable\|warn\|!"
 }
+
+# ---------------------------------------------------------------------------
+# _patch_gentle_ai_commands — BSD sed compatibility regression
+# ---------------------------------------------------------------------------
+@test "frameworks.sh: _patch_gentle_ai_commands strips basename \$(pwd) lines on BSD sed" {
+  local cfg_dir="${WSK_TEST_HOME}/.claude-test"
+  mkdir -p "${cfg_dir}/commands"
+  cat > "${cfg_dir}/commands/sdd-new.md" <<'MDEOF'
+# sdd-new
+- Current project: !`basename "$(pwd)"`
+- Other line stays
+MDEOF
+
+  _patch_gentle_ai_commands "$cfg_dir"
+
+  run grep -c 'basename' "${cfg_dir}/commands/sdd-new.md"
+  [ "$output" = "0" ]
+  run grep -c 'Other line stays' "${cfg_dir}/commands/sdd-new.md"
+  [ "$output" = "1" ]
+}
