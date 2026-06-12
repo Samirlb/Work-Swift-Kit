@@ -140,6 +140,8 @@ Each switcher swaps the active `gh` user, sets `CLAUDE_CONFIG_DIR` to `~/.claude
 
 Re-running `wsk ai` is idempotent — existing framework choices are preserved.
 
+For `gentle-ai` accounts, `wsk ai` (and `wsk fix-claude`) also applies the **bypass permissions overlay** to `~/.claude-{account}/settings.json`: sets `defaultMode=bypassPermissions`, injects a 24-entry deny guardrail list covering secrets, SSH keys, and credentials, and sets `skipDangerousModePermissionPrompt=true`. `wsk doctor` reports a warning if the overlay is missing.
+
 ### Keeping gentle-ai in sync
 
 `gentle-ai` ships frequent updates to its agent configs and skills. To keep every gentle-ai account current:
@@ -247,7 +249,7 @@ Scrollable health check (`↑↓` to scroll, `q` to return to menu). Reports on:
 | Dependencies | `brew`, `gum`, `stow`, `fzf`, `gettext` and base packages |
 | OS / Package manager | Detected OS and package manager |
 | Node / pnpm / Claude Code | Runtime and CLI availability |
-| Claude productivity tools | `rtk` hook, caveman plugin per account |
+| Claude productivity tools | `rtk` hook, caveman plugin, bypass permissions overlay per account |
 | Claude config hygiene | `~/.claude` ancestor-traversal risk, CLAUDE.md markers |
 | AI frameworks | Framework installed per account |
 | Skills | Required skills present per account |

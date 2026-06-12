@@ -339,6 +339,8 @@ install_ai_framework() {
       _patch_gentle_ai_commands "$cfg_dir"
       # Ensure CLAUDE.md contains WSK-managed content (minimalism block + @RTK.md).
       _patch_gentle_ai_claude_md "$cfg_dir"
+      # Apply gentle-ai bypass permissions overlay to settings.json.
+      _apply_claude_permissions "$acct"
       ;;
 
     gsd)
@@ -385,6 +387,9 @@ install_ai_framework() {
     if [[ "$_had_caveman" -eq 1 ]]; then
       _enable_caveman_plugin "$acct"
     fi
+
+    # Bypass permissions overlay: always re-apply after reconfigure.
+    _apply_claude_permissions "$acct"
 
     # MCP servers: restore only the servers that were registered before
     # uninstall.  Do not force-add servers the user never opted into.
@@ -783,6 +788,20 @@ run_fix_claude() {
     _pc_fw="$(grep '^AI_FRAMEWORK=' "$_pc_env" 2>/dev/null | cut -d= -f2- || true)"
     [[ "$_pc_fw" == "gentle-ai" ]] || continue
     _enable_caveman_plugin "$_pc_acct"
+  done
+
+  # ---------------------------------------------------------------------------
+  # Bypass permissions overlay heal (per gentle-ai account)
+  # Ensures settings.json has the gentle-ai bypass permissions applied.
+  # Idempotent — _apply_claude_permissions merges without overwriting unrelated keys.
+  # ---------------------------------------------------------------------------
+  ui_subhead "Bypass permissions overlay (per gentle-ai account)"
+  local _bp_acct _bp_fw _bp_env
+  for _bp_acct in "${WSK_ACCOUNTS[@]+"${WSK_ACCOUNTS[@]}"}"; do
+    _bp_env="${WSK_ACCOUNTS_DIR}/${_bp_acct}.env"
+    _bp_fw="$(grep '^AI_FRAMEWORK=' "$_bp_env" 2>/dev/null | cut -d= -f2- || true)"
+    [[ "$_bp_fw" == "gentle-ai" ]] || continue
+    _apply_claude_permissions "$_bp_acct"
   done
 }
 

@@ -238,6 +238,43 @@ install_caveman() {
 }
 
 # ---------------------------------------------------------------------------
+# _apply_claude_permissions <account>
+# Deep-merges the gentle-ai bypass permissions overlay into
+# ~/.claude-{acct}/settings.json. Creates the file as {} if absent.
+# Pre-existing settings keys not in the overlay are preserved; overlay wins
+# on conflict. Idempotent — merging twice yields an identical file.
+# Overlay path: ${WSK_DIR}/templates/claude-permissions-overlay.json
+# ---------------------------------------------------------------------------
+_apply_claude_permissions() {
+  local acct="$1"
+  local cfg_dir="${HOME}/.claude-${acct}"
+  local settings="${cfg_dir}/settings.json"
+  local overlay="${WSK_DIR}/templates/claude-permissions-overlay.json"
+
+  mkdir -p "$cfg_dir"
+
+  if [[ ! -f "$overlay" ]]; then
+    check_warn "${acct}: permissions overlay not found at ${overlay} — skipping"
+    return 0
+  fi
+
+  if ! command -v jq &>/dev/null; then
+    check_warn "${acct}: jq not available — apply gentle-ai bypass permissions manually"
+    return 0
+  fi
+
+  log_info "${acct}: applying gentle-ai bypass permissions (defaultMode=bypassPermissions + deny guardrails)"
+
+  [[ -f "$settings" ]] || printf '{}\n' > "$settings"
+
+  local tmp
+  tmp="$(mktemp)"
+  # Deep-merge: overlay wins on conflict; existing keys not in overlay are kept.
+  jq -s '.[0] * .[1]' "$settings" "$overlay" > "$tmp" && mv "$tmp" "$settings"
+  check_pass "${acct}: gentle-ai bypass permissions applied"
+}
+
+# ---------------------------------------------------------------------------
 # install_codegraph <account>
 # Installs the codegraph npm global package for the given account and
 # registers the per-account MCP config in ~/.claude-{acct}/.claude.json.

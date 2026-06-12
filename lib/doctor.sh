@@ -325,6 +325,21 @@ _run_doctor_output() {
        && grep -q 'caveman-activate.js' "$_settings" 2>/dev/null; then
       check_warn "${_tool_acct}: caveman installed twice (plugin + manual hooks) — remove manual hook entries from settings.json"
     fi
+
+    # gentle-ai bypass permissions overlay check (gentle-ai accounts only).
+    local _tool_fw=""
+    local _tool_env="${WSK_ACCOUNTS_DIR}/${_tool_acct}.env"
+    if [[ -f "$_tool_env" ]]; then
+      _tool_fw="$(grep '^AI_FRAMEWORK=' "$_tool_env" 2>/dev/null | cut -d= -f2- || true)"
+    fi
+    if [[ "$_tool_fw" == "gentle-ai" ]]; then
+      if [[ -f "$_settings" ]] && grep -q '"defaultMode"' "$_settings" 2>/dev/null \
+         && grep -q 'bypassPermissions' "$_settings" 2>/dev/null; then
+        check_pass "${_tool_acct}: bypass permissions overlay applied"
+      else
+        check_warn "${_tool_acct}: bypass permissions overlay missing — run: wsk fix-claude"
+      fi
+    fi
   done
 
   # ── ~/.claude ancestor-traversal guard ───────────────────────────────
