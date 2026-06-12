@@ -133,31 +133,15 @@ _patch_gentle_ai_commands() {
 #      exists in the same cfg_dir; the line is added once, not duplicated).
 # Safe to call multiple times — both operations are idempotent.
 # ---------------------------------------------------------------------------
-_patch_gentle_ai_claude_md() {
-  local cfg_dir="$1"
-  local md_file="${cfg_dir}/CLAUDE.md"
-  [[ -f "$md_file" ]] || return 0
+# ---------------------------------------------------------------------------
+# _upsert_marker_block <md_file> <begin_marker> <end_marker> <block>
+# Idempotently replaces the region between markers (inclusive) with <block>,
+# or appends <block> when the markers are absent. <block> must start with
+# begin_marker and end with end_marker.
+# ---------------------------------------------------------------------------
+_upsert_marker_block() {
+  local md_file="$1" begin_marker="$2" end_marker="$3" block="$4"
 
-  local begin_marker="<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:BEGIN -->"
-  local end_marker="<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:END -->"
-
-  # Build the minimalism block content (no leading/trailing blank lines so
-  # sed multiline replacement stays predictable).
-  local block
-  block="${begin_marker}
-## Sub-Agent Context Minimalism (MANDATORY)
-
-Every sub-agent (SDD phases included) loads ONLY what its task requires. Saturating sub-agent context is a discipline failure.
-
-- Inject only the skill paths that match the phase's code context and task context. Never pass the full skill registry or unrelated skills.
-- Pass artifact references (engram topic keys or file paths), never inline artifact content the sub-agent can fetch itself.
-- Forward only the role contract for that phase — not the orchestrator's full instructions, persona, or conversation history.
-- SDD phases read only their declared dependencies from the phase read/write table. No \"context just in case\".
-- Sub-agents must not load skills outside the injected list, must not orchestrate or spawn further agents, and must not re-read the registry unless their \`skill_resolution\` fallback fires.
-- When in doubt between passing more or less context, pass less and include the reference needed to fetch the rest.
-${end_marker}"
-
-  # Replace or append the minimalism block.
   if grep -qF "$begin_marker" "$md_file" 2>/dev/null; then
     # Block already present — replace the entire region between markers (inclusive).
     if command -v python3 >/dev/null 2>&1; then
@@ -188,6 +172,54 @@ PYEOF
     # Block absent — append it with a preceding blank line for readability.
     printf '\n%s\n' "$block" >> "$md_file"
   fi
+}
+
+_patch_gentle_ai_claude_md() {
+  local cfg_dir="$1"
+  local md_file="${cfg_dir}/CLAUDE.md"
+  [[ -f "$md_file" ]] || return 0
+
+  # Block 1: Sub-Agent Context Minimalism (no leading/trailing blank lines so
+  # multiline replacement stays predictable).
+  local min_begin="<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:BEGIN -->"
+  local min_end="<!-- WSK:SUBAGENT-CONTEXT-MINIMALISM:END -->"
+  local min_block
+  min_block="${min_begin}
+## Sub-Agent Context Minimalism (MANDATORY)
+
+Every sub-agent (SDD phases included) loads ONLY what its task requires. Saturating sub-agent context is a discipline failure.
+
+- Inject only the skill paths that match the phase's code context and task context. Never pass the full skill registry or unrelated skills.
+- Pass artifact references (engram topic keys or file paths), never inline artifact content the sub-agent can fetch itself.
+- Forward only the role contract for that phase — not the orchestrator's full instructions, persona, or conversation history.
+- SDD phases read only their declared dependencies from the phase read/write table. No \"context just in case\".
+- Sub-agents must not load skills outside the injected list, must not orchestrate or spawn further agents, and must not re-read the registry unless their \`skill_resolution\` fallback fires.
+- When in doubt between passing more or less context, pass less and include the reference needed to fetch the rest.
+${min_end}"
+
+  # Block 2: Multi-Account Machine Guide — teaches any Claude session on this
+  # machine how to install MCP servers, plugins, and skills per scope without
+  # writing to the nonexistent default ~/.claude profile.
+  local ma_begin="<!-- WSK:MULTI-ACCOUNT-GUIDE:BEGIN -->"
+  local ma_end="<!-- WSK:MULTI-ACCOUNT-GUIDE:END -->"
+  local ma_block
+  ma_block="${ma_begin}
+## Multi-Account Machine Guide (WSK-managed)
+
+This machine uses Work-Swift-Kit multi-account isolation. The active profile is \$CLAUDE_CONFIG_DIR (e.g. ~/.claude-work or ~/.claude-personal). There is NO ~/.claude directory by design — never create it, and never write to the default ~/.claude.json.
+
+When asked to install or register tooling, target the ACTIVE profile:
+- MCP server (this account): \`claude mcp add --scope user <name> -- <command...>\` — CLAUDE_CONFIG_DIR is already set in-session. For another account, prefix \`CLAUDE_CONFIG_DIR=\$HOME/.claude-<acct>\`.
+- MCP server (this project, shared via git): add the entry to \`.mcp.json\` at the repo ROOT — the only valid location for that filename.
+- Plugins: enable via /plugin inside a session of the target profile, or \`enabledPlugins\` in that profile's settings.json — and verify the plugin cache exists under \`<profile>/plugins/cache/\`.
+- Skills: directory under \`<profile>/skills/<name>/SKILL.md\`, or \`.claude/skills/\` in the repo for project scope.
+- Distrust third-party installers that hardcode \`~/.claude\` or \`~/.claude.json\` — verify their target paths first or register manually with \`claude mcp add\`.
+- Git identity is per-directory (gitconfig includeIf). Remotes use per-account ssh aliases (e.g. \`github-work\`). NEVER run git with sudo.
+- WSK lifecycle commands: \`wsk doctor\`, \`wsk fix-claude\`, \`wsk fix-git\`, \`wsk ai-update\`, \`wsk sync\`.
+${ma_end}"
+
+  _upsert_marker_block "$md_file" "$min_begin" "$min_end" "$min_block"
+  _upsert_marker_block "$md_file" "$ma_begin" "$ma_end" "$ma_block"
 
   # Append @RTK.md import if RTK.md exists in the same dir and the line is absent.
   if [[ -f "${cfg_dir}/RTK.md" ]] && ! grep -qF '@RTK.md' "$md_file" 2>/dev/null; then

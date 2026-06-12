@@ -477,3 +477,24 @@ EOF
   # No minimalism warning should be present
   ! echo "$out" | grep -qi "minimalism block.*missing\|missing.*minimalism"
 }
+
+# ---------------------------------------------------------------------------
+# Multi-account guide block — upserted alongside the minimalism block
+# ---------------------------------------------------------------------------
+@test "claude_md patch: multi-account guide block added and idempotent" {
+  local cfg_dir="${WSK_TEST_HOME}/.claude-test"
+  mkdir -p "$cfg_dir"
+  printf '# CLAUDE.md\n\nexisting content\n' > "${cfg_dir}/CLAUDE.md"
+
+  _patch_gentle_ai_claude_md "$cfg_dir"
+  _patch_gentle_ai_claude_md "$cfg_dir"
+
+  run grep -c 'WSK:MULTI-ACCOUNT-GUIDE:BEGIN' "${cfg_dir}/CLAUDE.md"
+  [ "$output" = "1" ]
+  run grep -c 'WSK:SUBAGENT-CONTEXT-MINIMALISM:BEGIN' "${cfg_dir}/CLAUDE.md"
+  [ "$output" = "1" ]
+  run grep -c 'Multi-Account Machine Guide' "${cfg_dir}/CLAUDE.md"
+  [ "$output" = "1" ]
+  run grep -c 'existing content' "${cfg_dir}/CLAUDE.md"
+  [ "$output" = "1" ]
+}
