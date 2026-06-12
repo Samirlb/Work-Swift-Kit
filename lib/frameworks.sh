@@ -221,6 +221,19 @@ ${ma_end}"
   _upsert_marker_block "$md_file" "$min_begin" "$min_end" "$min_block"
   _upsert_marker_block "$md_file" "$ma_begin" "$ma_end" "$ma_block"
 
+  # Strip the gentle-ai engram-protocol section: the engram PLUGIN already
+  # injects the same protocol at session start, so the CLAUDE.md copy is pure
+  # duplicated token cost (~1.2k tokens per session and per sub-agent).
+  if grep -qF '<!-- gentle-ai:engram-protocol -->' "$md_file" 2>/dev/null; then
+    local _tmp_strip
+    _tmp_strip="$(mktemp)"
+    awk '
+      index($0, "<!-- gentle-ai:engram-protocol -->") { skip=1 }
+      !skip { print }
+      index($0, "<!-- /gentle-ai:engram-protocol -->") { skip=0 }
+    ' "$md_file" > "$_tmp_strip" && mv "$_tmp_strip" "$md_file"
+  fi
+
   # Append @RTK.md import if RTK.md exists in the same dir and the line is absent.
   if [[ -f "${cfg_dir}/RTK.md" ]] && ! grep -qF '@RTK.md' "$md_file" 2>/dev/null; then
     printf '\n@RTK.md\n' >> "$md_file"

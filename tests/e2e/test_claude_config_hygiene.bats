@@ -498,3 +498,24 @@ EOF
   run grep -c 'existing content' "${cfg_dir}/CLAUDE.md"
   [ "$output" = "1" ]
 }
+
+@test "claude_md patch: strips duplicated gentle-ai engram-protocol section" {
+  local cfg_dir="${WSK_TEST_HOME}/.claude-test2"
+  mkdir -p "$cfg_dir"
+  cat > "${cfg_dir}/CLAUDE.md" <<'MDEOF'
+# CLAUDE.md
+keep this
+<!-- gentle-ai:engram-protocol -->
+engram body that the plugin already injects
+<!-- /gentle-ai:engram-protocol -->
+also keep this
+MDEOF
+
+  _patch_gentle_ai_claude_md "$cfg_dir"
+  _patch_gentle_ai_claude_md "$cfg_dir"
+
+  run grep -c 'engram-protocol' "${cfg_dir}/CLAUDE.md"
+  [ "$output" = "0" ]
+  run grep -c 'keep this' "${cfg_dir}/CLAUDE.md"
+  [ "$output" = "2" ]
+}
